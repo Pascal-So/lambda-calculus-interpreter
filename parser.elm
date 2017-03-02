@@ -13,6 +13,20 @@ pAnyChar str =
     Just (fst, rest) ->
       [(fst, rest)]
 
+pInt : Parser Int
+pInt =
+  parserMaybe (pChar '-' || pChar '+') >>= \maybeSign ->
+  parserMany1 (pOneOf "0123456789") >>= \digits ->
+  return (
+    let
+      num = String.fromList digits 
+        |> String.toInt 
+        |> Result.withDefault 0
+      isMinus = maybeSign == Just '-'
+    in
+      if isMinus then -num else num
+  )
+
 pChar : Char -> Parser Char
 pChar c = pSat ((==)c)
 
@@ -26,10 +40,22 @@ pString str input =
     else
       []
 
+pWhitespace : Parser String
+pWhitespace = 
+  pOneOf " \t\n"
+    |> parserMany
+    |> parserMap (String.fromList)
 
-pWhitespace : Parser ()
-pWhitespace str =
-  [((), String.trimLeft str)]
+pWhile : (Char -> Bool) -> Parser String
+pWhile predicate str =
+  let
+    list = String.toList str
+    matching = takeWhile predicate list
+      |> String.fromList
+    rest = dropWhile predicate list
+      |> String.fromList
+  in
+    [(matching, rest)]
 
 pSat : (Char -> Bool) -> Parser Char
 pSat f = 
@@ -106,11 +132,35 @@ parserFilter : (a -> Bool) -> Parser a -> Parser a
 parserFilter f p = parsedFilter f << p
 
 
-
-
-
 parens : Parser a -> Parser a
 parens p = pChar '(' >>> p <<< pChar ')'
 
 
-main = text <| toString <| parens (pWhitespace >>> pString "abc" <<< pWhitespace) "( abc   )"
+main = text <| toString <| parens (pWhitespace >>> pInt <<< pWhitespace) "(  -2  )"
+
+
+
+
+
+
+-- more stuff that should be in stdlibs
+
+takeWhile : (a -> Bool) -> List a -> List a
+takeWhile f l =
+  case l of
+    [] -> []
+    (x::xs) ->
+      if f x then
+        x :: takeWhile f xs
+      else
+        []
+
+dropWhile : (a -> Bool) -> List a -> List a
+dropWhile f l =
+  case l of
+    [] -> []
+    (x::xs) ->
+      if f x then
+        dropWhile f xs
+      else
+        x::xs
