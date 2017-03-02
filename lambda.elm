@@ -1,16 +1,83 @@
 import Html exposing (Html, text)
+import Html.Attributes
+import Html.Events
 import Set exposing (Set)
 
 
 --------------------------- MAIN ------------------------------------------
 
 main =
+  Html.program
+    { init = init
+    , update = update
+    , view = view
+    , subscriptions = \_ -> Sub.none
+    }
   text <| toString <| allTestsOk
   --text <| showTerm <| evaluate <| App succ <| App succ (churchNum 0)
   --text <| showTerm <| evaluate (App omega omega)
   
   
   
+type alias Model =
+  { program : String
+  , result : Result String String
+  }
+
+type Msg = ProgramChanged String
+
+noCmd : Model -> (Model, Cmd Msg)
+noCmd m =
+  (m, Cmd.none)
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
+  case msg of
+    ProgramChanged newProg ->
+      Model newProg (runProgram newProg) |> noCmd
+
+init : (Model, Cmd Msg)
+init =
+  Model "" (Err "") |> noCmd
+
+
+view : Model -> Html Msg
+view model =
+  Html.div [Html.Attributes.style [("text-align", "center")]]
+    [ Html.textarea [Html.Attributes.cols 40, Html.Attributes.rows 3, Html.Attributes.value model.program, Html.Events.onInput ProgramChanged]
+        []
+    , Html.h3 []
+        [ case model.result of
+            Err msg ->
+              text msg
+            Ok res ->
+              text res
+        ]
+    ]
+
+
+runAndShowProgram : Term -> (Term, Term, String)
+runAndShowProgram t =
+  let
+    ev = evaluate t
+    show = showTerm ev
+  in
+    (t, ev, show)
+
+runProgram : String -> Maybe (Term, Term, String)
+runProgram p =
+  let
+    parsed = (parseTerm <<< pEOF) p
+      |> List.head
+      |> Maybe.map Tuple.first
+      |> Maybe.map runAndShowProgram
+    
+  (parseTerm <<< pEOF) p 
+    |> List.head
+    |> Maybe.map Tuple.first
+    |> Result.fromMaybe "Could not parse program"
+    |> Result.map (showTerm << evaluate)
+
   
   
 ------------- Lambda Calculus Parser -----------------------
@@ -56,7 +123,7 @@ parseTerm str =
   in
     (pureTerms || parens pureTerms) str
 
-    
+
 
 ---------------------- some useful terms ---------------------------------
 
