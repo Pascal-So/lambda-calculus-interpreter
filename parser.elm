@@ -98,7 +98,13 @@ parserMany1 p = p >>= \x ->
 
 (||) : Parser a -> Parser a -> Parser a
 (||) a b str =
-  a str ++ b str
+  let
+    resA = a str
+  in
+    if List.isEmpty resA then
+      b str
+    else
+      resA
 
 return : a -> Parser a
 return a str = [(a, str)]
@@ -131,9 +137,16 @@ parsedFilter f = List.filter (\(a, _) -> f a)
 parserFilter : (a -> Bool) -> Parser a -> Parser a
 parserFilter f p = parsedFilter f << p
 
-
 parens : Parser a -> Parser a
 parens p = pChar '(' >>> p <<< pChar ')'
+
+pEOF : Parser ()
+pEOF str =
+  case str of
+    "" -> [((), "")]
+    _  -> []
+    
+
 
 
 main = text <| toString <| parens (pWhitespace >>> pInt <<< pWhitespace) "(  -2  )"

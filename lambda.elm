@@ -13,7 +13,50 @@ main =
   
   
   
-  
+------------- Lambda Calculus Parser -----------------------
+
+
+
+parseApp : Parser Term
+parseApp =
+  let
+    appTerm = (parseVar || parens parseTerm) <<< pWhitespace
+  in
+    appTerm >>= \func ->
+    parserMany1 appTerm >>= \args ->
+    return (multiApp func args)
+
+parseLambda : Parser Term
+parseLambda str =
+  (pChar '\\' >>>
+  pWhitespace >>>
+  parserMany1 (parseVarName <<< pWhitespace) >>= \bound ->
+  pChar '.' >>>
+  pWhitespace >>>
+  parseTerm >>= \t ->
+  return (multiVarLambda bound t)) str
+
+parseVarName : Parser VarName
+parseVarName = pOneOf "0123456789" 
+  |> parserMap (\chr -> 
+    String.fromChar chr
+      |> String.toInt
+      |> Result.withDefault 0
+  )
+
+parseVar : Parser Term
+parseVar = parserMap Var parseVarName
+
+
+-- need to pass str argument explicitly because of eager evaluation
+parseTerm : Parser Term
+parseTerm str = 
+  let
+    pureTerms = parseApp || parseLambda || parseVar
+  in
+    (pureTerms || parens pureTerms) str
+
+    
 
 ---------------------- some useful terms ---------------------------------
 
@@ -269,6 +312,16 @@ evaluate t =
       ev
     else 
       evaluate ev
+
+-- convert a list of bound vars and a contained term to multiple nested lambdas
+multiVarLambda : List VarName -> Term -> Term
+multiVarLambda =
+  flip (List.foldr Lambda)
+  
+  
+-- convert application of multi arg function to multiple applications
+multiApp : Term -> List Term -> Term
+multiApp = List.foldl (flip App)
 
 
 
