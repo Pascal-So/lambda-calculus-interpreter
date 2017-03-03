@@ -23,8 +23,8 @@ anyChar str =
 
 int : Parser Int
 int =
-  maybe (pChar '-' +++ pChar '+') >>= \maybeSign ->
-  many1 (pOneOf "0123456789") >>= \digits ->
+  maybe (char '-' +++ char '+') >>= \maybeSign ->
+  many1 (oneOf "0123456789") >>= \digits ->
   return (
     let
       num = String.fromList digits
@@ -36,7 +36,7 @@ int =
   )
 
 char : Char -> Parser Char
-char c = pSat ((==)c)
+char c = sat ((==)c)
 
 string : String -> Parser String
 string str input =
@@ -67,7 +67,7 @@ while predicate str =
 
 restOfLine : Parser String
 restOfLine =
-  while ((/=) '\n') <* pChar '\n'
+  while ((/=) '\n') <* char '\n'
 
 sat : (Char -> Bool) -> Parser Char
 sat f =
@@ -150,7 +150,7 @@ filter : (a -> Bool) -> Parser a -> Parser a
 filter f p = parsedFilter f << p
 
 -- runs the given parser on the rest of the current line.
--- if parser doesn't consume entire line, parse is dropped, 
+-- if parser doesn't consume entire line, parse is dropped,
 -- otherwise, results are returned with the rest being after
 -- the newline.
 inRestOfLine : Parser a -> Parser a
@@ -166,7 +166,7 @@ inRestOfLine p str =
     parsed = p restOfLine
   in
     parsed
-      |> List.map (\(result, inlineRest) -> 
+      |> List.map (\(result, inlineRest) ->
         case inlineRest of
           "" ->
             Just (result, after)
