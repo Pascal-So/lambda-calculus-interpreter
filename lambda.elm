@@ -6,22 +6,22 @@ import Set exposing (Set)
 
 --------------------------- MAIN ------------------------------------------
 
-main =
+main = 
   Html.program
     { init = init
     , update = update
     , view = view
     , subscriptions = \_ -> Sub.none
     }
-  text <| toString <| allTestsOk
-  --text <| showTerm <| evaluate <| App succ <| App succ (churchNum 0)
-  --text <| showTerm <| evaluate (App omega omega)
-  
-  
-  
+  -- text <| toString <| allTestsOk
+  -- text <| toString <| testsOk testParsing
+
+
+-- (\123.2(123))(\12.2)
+
 type alias Model =
   { program : String
-  , result : Result String String
+  , result : Maybe (List Term)
   }
 
 type Msg = ProgramChanged String
@@ -38,46 +38,34 @@ update msg model =
 
 init : (Model, Cmd Msg)
 init =
-  Model "" (Err "") |> noCmd
+  Model "" Nothing |> noCmd
 
 
 view : Model -> Html Msg
 view model =
   Html.div [Html.Attributes.style [("text-align", "center")]]
-    [ Html.textarea [Html.Attributes.cols 40, Html.Attributes.rows 3, Html.Attributes.value model.program, Html.Events.onInput ProgramChanged]
+    [ Html.textarea 
+        [ Html.Attributes.cols 40
+        , Html.Attributes.rows 3
+        , Html.Attributes.value model.program
+        , Html.Events.onInput ProgramChanged]
         []
-    , Html.h3 []
-        [ case model.result of
-            Err msg ->
-              text msg
-            Ok res ->
-              text res
-        ]
+    , case model.result of
+        Nothing ->
+          Html.h3[] [text "Could not parse program"]
+        Just (terms) ->
+          List.map (\s -> Html.h3 [] [text <| showTerm s]) terms 
+            |> Html.div []
     ]
 
 
-runAndShowProgram : Term -> (Term, Term, String)
-runAndShowProgram t =
-  let
-    ev = evaluate t
-    show = showTerm ev
-  in
-    (t, ev, show)
 
-runProgram : String -> Maybe (Term, Term, String)
+runProgram : String -> Maybe (List Term)
 runProgram p =
-  let
-    parsed = (parseTerm <<< pEOF) p
-      |> List.head
-      |> Maybe.map Tuple.first
-      |> Maybe.map runAndShowProgram
-    
-  (parseTerm <<< pEOF) p 
+  (parseTerm <<< pEOF) p
     |> List.head
     |> Maybe.map Tuple.first
-    |> Result.fromMaybe "Could not parse program"
-    |> Result.map (showTerm << evaluate)
-
+    |> Maybe.map evaluateStepwise
   
   
 ------------- Lambda Calculus Parser -----------------------
@@ -204,6 +192,10 @@ testsEvaluation =
   , ( evaluationStep (App (Lambda 1 (Lambda 2 (Var 1))) (Lambda 1 (Var 1)))
     , Lambda 2 (Lambda 1 (Var 1))
     )
+    
+  , ( evaluationStep (App (Lambda 1 (Lambda 2 (Var 2))) (Var 2))
+    , Lambda 1 (Var 1)
+    )
   ]
   
 testsNums =
@@ -251,6 +243,47 @@ testBools =
   ]
 
 
+extractParsed : Parsed Term -> Term
+extractParsed p =
+  List.head p
+    |> Maybe.map Tuple.first
+    |> Maybe.withDefault (Var 99)
+
+testParsing =
+  [ ( parseVar "1" |> extractParsed
+    , Var 1
+    )
+    
+  , ( parseApp "12" |> extractParsed
+    , App (Var 1) (Var 2)
+    )
+    
+  , ( parseLambda "\\1.1" |> extractParsed
+    , Lambda 1 (Var 1)
+    )
+    
+  , ( parseLambda "\\12.1" |> extractParsed
+    , Lambda 1 (Lambda 2 (Var 1))
+    )
+    
+  , ( parseLambda "\\12.12" |> extractParsed
+    , Lambda 1 (Lambda 2 (App (Var 1) (Var 2)))
+    )
+    
+  , ( parseLambda "\\123.1" |> extractParsed
+    , Lambda 1 (Lambda 2 (Lambda 3 (Var 1)))
+    )
+    
+  , ( parseTerm "(\\1.1)2" |> extractParsed
+    , App (Lambda 1 (Var 1)) (Var 2)
+    )
+    
+  , ( parseTerm "(\\1.1)23" |> extractParsed
+    , App (App (Lambda 1 (Var 1)) (Var 2)) (Var 3)
+    )
+  ]
+
+
 testsOk : List (a, a) -> Bool
 testsOk = List.all (uncurry (==))
 
@@ -258,10 +291,9 @@ testsOk = List.all (uncurry (==))
 allTestsOk : Bool
 allTestsOk =
   let
-    testsList = [testsSubstitute, testsEvaluation, testsNums, testBools]
+    testsList = [testsSubstitute, testsEvaluation, testsNums, testBools, testParsing]
   in
     List.all testsOk testsList
-
 
 
 
@@ -344,9 +376,9 @@ substitute x r t =
           let
             disallowed = Set.union (getFreeVars e) (getFreeVars r)
             newName = findUnusedVar disallowed
-            renamed = renameFreeVar y newName e
+            renamedBody = renameFreeVar y newName e
           in
-            Lambda newName (substitute x r renamed)
+            substitute x r (Lambda newName renamedBody)
         else
           Lambda y (substitute x r e)
 
