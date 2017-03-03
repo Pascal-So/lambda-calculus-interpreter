@@ -6,7 +6,7 @@ import Set exposing (Set)
 
 --------------------------- MAIN ------------------------------------------
 
-main = 
+main =
   Html.program
     { init = init
     , update = update
@@ -14,6 +14,7 @@ main =
     , subscriptions = \_ -> Sub.none
     }
   -- text <| toString <| allTestsOk
+  -- text <| showFailedTests
   -- text <| toString <| testsOk testParsing
 
 
@@ -21,7 +22,7 @@ main =
 
 type alias Model =
   { program : String
-  , result : Maybe (List Term)
+  , result : Result String (List (List Term))
   }
 
 type Msg = ProgramChanged String
@@ -38,48 +39,149 @@ update msg model =
 
 init : (Model, Cmd Msg)
 init =
-  Model "" Nothing |> noCmd
+  Model "" (Err "Empty program") |> noCmd
+
+
+lightGrey : Html.Attribute a
+lightGrey = style [("color", "#777")]
+
+darkGrey : Html.Attribute a
+darkGrey = style [("color", "#222")]
+
+ma : Int -> Html.Attribute a
+ma x = style [("margin", toString x ++ "px")]
+
+mb : Int -> Html.Attribute a
+mb x = style [("margin-bottom", toString x ++ "px")]
+
+viewStepwise : List Term -> List (Html Msg)
+viewStepwise terms =
+  case terms of
+    []      -> []
+    [x]     -> [Html.h3 [darkGrey, ma 5] [text <| showTerm x]]
+    (x::xs) -> Html.h3 [lightGrey, ma 5] [text <| showTerm x] :: viewStepwise xs
 
 
 view : Model -> Html Msg
 view model =
   Html.div [Html.Attributes.style [("text-align", "center")]]
     [ Html.textarea 
-        [ Html.Attributes.cols 40
-        , Html.Attributes.rows 3
+        [ Html.Attributes.cols 60
+        , Html.Attributes.rows 7
         , Html.Attributes.value model.program
         , Html.Events.onInput ProgramChanged]
         []
     , case model.result of
-        Nothing ->
-          Html.h3[] [text "Could not parse program"]
-        Just (terms) ->
-          List.map (\s -> Html.h3 [] [text <| showTerm s]) terms 
+        Err error ->
+          Html.h3[] [text error]
+        Ok termChains ->
+          List.map viewStepwise termChains
+            |> List.map (\x -> Html.div [mb 30] x)
             |> Html.div []
     ]
 
 
 
-runProgram : String -> Maybe (List Term)
-runProgram p =
-  (parseTerm <<< pEOF) p
-    |> List.head
+runProgram : String -> Result String (List (List Term))
+runProgram str =
+  (parseProgram <<< pEOF) str
+    |> log "parse"
+    |> List.head 
     |> Maybe.map Tuple.first
-    |> Maybe.map evaluateStepwise
-  
+    |> Result.fromMaybe "Could not parse program"
+    |> Result.andThen (\program ->
+         if List.isEmpty program then
+           Err "Empty program" 
+         else
+           Ok program
+       )
+    |> Result.andThen (\program ->
+         if hasDuplicateVars program then
+           Err "Some variables have been assigned twice"
+         else
+           Ok program
+       )
+    |> Result.map (List.map evaluateStepwise << programToExpressions)
 
-------------- wrapper language transformer ---------------
+------------- Wrapper Language Transformer ---------------
+
+getAssignmentsDict : List ProgramLine -> Dict VarName Term
+getAssignmentsDict lines =
+  lines
+    |> List.filterMap (\line -> 
+         case line of
+           Assignment a b -> Just (a, b)
+           Expression _   -> Nothing
+       )
+    |> Dict.fromList
+
+
+getExpressionTerms : List ProgramLine -> List Term
+getExpressionTerms lines =
+  lines
+    |> List.filterMap (\line ->
+         case line of
+           Expression term -> Just term
+           Assignment _ _  -> Nothing
+       )
+
+
+wrapInLambdas : Dict VarName Term -> Term -> Term
+wrapInLambdas dict term =
+  let
+    freeVars = getFreeVars term
+    termsToAssign = dict
+      |> Dict.filter (\var _ ->
+           Set.member var freeVars
+         )
+      |> Dict.toList
+  in
+    termsToAssign
+      |> List.foldr (\(name, val) accTerm ->
+           App (Lambda name accTerm) val
+         ) term
+
+
+-- only run on valid program (no duplicate variable assignments), 
+-- otherwise duplicate assignments will be overridden
+programToExpressions : List ProgramLine -> List Term
+programToExpressions lines = 
+  let
+    assignments = getAssignmentsDict lines
+    terms = getExpressionTerms lines
+  in
+    List.map (wrapInLambdas assignments) terms
+
+
+hasDuplicateVars : List ProgramLine -> Bool
+hasDuplicateVars prog =
+  let
+    vars = 
+      prog
+        |> List.filterMap (\line ->
+             case line of
+               Assignment var _ -> Just var
+               Expression _     -> Nothing
+           )
+    len = List.length vars
+    uniqueLen = Set.size (Set.fromList vars)
+  in
+    len /= uniqueLen
+    
 
 
 
--------------- Wrapper Language Parser ----------------------
+
+------------ Wrapper Language Parser ----------------------
 
 
 type ProgramLine = Assignment VarName Term | Expression Term
 
+
 isAlpha : Char -> Bool
 isAlpha c =
   (Char.isUpper c) || (Char.isLower c)
+
 
 isAlphanum : Char -> Bool
 isAlphanum c =
@@ -90,6 +192,7 @@ parseComment =
   pChar '#' >>>
   pRestOfLine >>>
   return ()
+  
   
 parseAssignment : Parser ProgramLine
 parseAssignment =
@@ -105,9 +208,12 @@ parseExpression =
   parseTerm >>= \term ->
   return (Expression term)
   
+
 parseProgram : Parser (List ProgramLine)
 parseProgram =
-  parserMany (parseExpression ||| parseAssignment)
+  parserMany (pWhitespace >>> (parserInRestOfLine (parseExpression <<< pWhitespace) ||| parseAssignment) <<< pWhitespace) >>= \lines ->
+  return lines
+
 
 
 ------------- Lambda Calculus Parser -----------------------
@@ -135,7 +241,7 @@ parseLambda str =
 
 parseSingleCharVar : Parser VarName
 parseSingleCharVar =
-  pSat isAlpha >>= \char ->
+  pSat isAlphanum >>= \char ->
   return (String.fromChar char)
 
 parseLongVarName : Parser VarName
