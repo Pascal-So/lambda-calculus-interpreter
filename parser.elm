@@ -149,6 +149,31 @@ parsedFilter f = List.filter (\(a, _) -> f a)
 filter : (a -> Bool) -> Parser a -> Parser a
 filter f p = parsedFilter f << p
 
+-- runs the given parser on the rest of the current line.
+-- if parser doesn't consume entire line, parse is dropped, 
+-- otherwise, results are returned with the rest being after
+-- the newline.
+inRestOfLine : Parser a -> Parser a
+inRestOfLine p str =
+  let
+    lst = String.toList str
+    restOfLine = takeWhile ((/=) '\n') lst
+      |> String.fromList
+    after = dropWhile ((/=) '\n') lst
+      |> List.tail
+      |> Maybe.withDefault []
+      |> String.fromList
+    parsed = p restOfLine
+  in
+    parsed
+      |> List.map (\(result, inlineRest) -> 
+        case inlineRest of
+          "" ->
+            Just (result, after)
+          _ ->
+            Nothing
+        )
+      |> List.filterMap (\x->x)
 
 
 

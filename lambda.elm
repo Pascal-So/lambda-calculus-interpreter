@@ -71,10 +71,15 @@ runProgram p =
 ------------- wrapper language transformer ---------------
 
 
+
+-------------- Wrapper Language Parser ----------------------
+
+
+type ProgramLine = Assignment VarName Term | Expression Term
+
 isAlpha : Char -> Bool
 isAlpha c =
   (Char.isUpper c) || (Char.isLower c)
-
 
 isAlphanum : Char -> Bool
 isAlphanum c =
@@ -86,21 +91,23 @@ parseComment =
   pRestOfLine >>>
   return ()
   
-parseVariableName : Parser String
-parseVariableName =
-  pSat isAlpha >>= \fst ->
-  parserMany (pSat isAlphanum) >>= \tail ->
-  return (String.fromList (fst::tail))
-  
-  
-parseAssignment : Parser (String, Term)
+parseAssignment : Parser ProgramLine
 parseAssignment =
-  parseVariableName >>= \varname ->
+  parseVarName >>= \varname ->
   pWhitespace >>>
   pChar '=' >>>
   pWhitespace >>>
-  pRestOfLine >>= \content ->
-  return (varname, content)
+  parserInRestOfLine parseTerm >>= \term ->
+  return (Assignment varname term)
+
+parseExpression : Parser ProgramLine
+parseExpression =
+  parseTerm >>= \term ->
+  return (Expression term)
+  
+parseProgram : Parser (List ProgramLine)
+parseProgram =
+  parserMany (parseExpression ||| parseAssignment)
 
 
 ------------- Lambda Calculus Parser -----------------------
@@ -134,10 +141,9 @@ parseSingleCharVar =
 parseLongVarName : Parser VarName
 parseLongVarName =
   pChar '`' >>>
-  pSat isAlpha >>= \fst ->
-  parserMany (pSat isAlphanum) >>= \rest ->
+  parserMany (pSat isAlphanum) >>= \name ->
   pChar '`' >>>
-  return (String.fromList (fst::rest))
+  return (String.fromList name)
 
 parseVarName : Parser VarName
 parseVarName = 
