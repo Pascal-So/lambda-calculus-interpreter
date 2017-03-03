@@ -67,7 +67,42 @@ runProgram p =
     |> Maybe.map Tuple.first
     |> Maybe.map evaluateStepwise
   
+
+------------- wrapper language transformer ---------------
+
+
+isAlpha : Char -> Bool
+isAlpha c =
+  (Char.isUpper c) || (Char.isLower c)
+
+
+isAlphanum : Char -> Bool
+isAlphanum c =
+  (isAlpha c) || (Char.isDigit c)
+
+parseComment : Parser ()
+parseComment =
+  pChar '#' >>>
+  pRestOfLine >>>
+  return ()
   
+parseVariableName : Parser String
+parseVariableName =
+  pSat isAlpha >>= \fst ->
+  parserMany (pSat isAlphanum) >>= \tail ->
+  return (String.fromList (fst::tail))
+  
+  
+parseAssignment : Parser (String, Term)
+parseAssignment =
+  parseVariableName >>= \varname ->
+  pWhitespace >>>
+  pChar '=' >>>
+  pWhitespace >>>
+  pRestOfLine >>= \content ->
+  return (varname, content)
+
+
 ------------- Lambda Calculus Parser -----------------------
 
 
@@ -91,13 +126,22 @@ parseLambda str =
   parseTerm >>= \t ->
   return (multiVarLambda bound t)) str
 
+parseSingleCharVar : Parser VarName
+parseSingleCharVar =
+  pSat isAlpha >>= \char ->
+  return (String.fromChar char)
+
+parseLongVarName : Parser VarName
+parseLongVarName =
+  pChar '`' >>>
+  pSat isAlpha >>= \fst ->
+  parserMany (pSat isAlphanum) >>= \rest ->
+  pChar '`' >>>
+  return (String.fromList (fst::rest))
+
 parseVarName : Parser VarName
-parseVarName = pOneOf "0123456789" 
-  |> parserMap (\chr -> 
-    String.fromChar chr
-      |> String.toInt
-      |> Result.withDefault 0
-  )
+parseVarName = 
+  parseSingleCharVar ||| parseLongVarName
 
 parseVar : Parser Term
 parseVar = parserMap Var parseVarName
@@ -112,6 +156,14 @@ parseTerm str =
     (pureTerms || parens pureTerms) str
 
 
+extractParsedWithDefault : Term -> Parsed Term -> Term
+extractParsedWithDefault t p =
+  List.head p
+    |> Maybe.map Tuple.first
+    |> Maybe.withDefault t
+
+extractParsed : Parsed Term -> Term
+extractParsed = extractParsedWithDefault (Var "parserError")
 
 ---------------------- some useful terms ---------------------------------
 
@@ -162,39 +214,39 @@ y = Lambda 2 (App (Lambda 1 (App (Var 2) (App (Var 1) (Var 1)))) (Lambda 1 (App 
 --------------------------- TESTS --------------------------------------
 
 testsSubstitute = 
-  [ ( substitute 1 (Var 2) (Var 1)
-    , Var 2
+  [ ( substitute "x" (Var "y") (Var "x")
+    , Var "y"
     )
     
-  , ( substitute 1 (Var 2) (Lambda 1 (Var 1))
-    , Lambda 1 (Var 1)
+  , ( substitute "x" (Var "y") (Lambda "x" (Var "x"))
+    , Lambda "x" (Var "x")
     )
     
-  , ( substitute 2 (Var 3) (Lambda 1 (Var 2))
-    , Lambda 1 (Var 3)
+  , ( substitute "y" (Var "z") (Lambda "x" (Var "y"))
+    , Lambda "x" (Var "z")
     )
     
-  , ( substitute 2 (Var 1) (Lambda 1 (Var 2))
-    , Lambda 3 (Var 1)
+  , ( substitute "y" (Var "x") (Lambda "x" (Var "y"))
+    , Lambda "1" (Var "x")
     )
     
-  , ( substitute 1 (Lambda 1 (App (Var 1) (Var 1))) (App (Var 1) (Var 1))
-    , App (Lambda 1 (App (Var 1) (Var 1))) (Lambda 1 (App (Var 1) (Var 1)))
+  , ( substitute "x" (Lambda "x" (App (Var "x") (Var "x"))) (App (Var "x") (Var "x"))
+    , App (Lambda "x" (App (Var "x") (Var "x"))) (Lambda "x" (App (Var "x") (Var "x")))
     )
   ]
 
 
 testsEvaluation =
-  [ ( evaluationStep (App (Lambda 1 (App (Var 1) (Var 1))) (Lambda 1 (App (Var 1) (Var 1))))
-    , App (Lambda 1 (App (Var 1) (Var 1))) (Lambda 1 (App (Var 1) (Var 1)))
+  [ ( evaluationStep (App (Lambda "x" (App (Var "x") (Var "x"))) (Lambda "x" (App (Var "x") (Var "x"))))
+    , App (Lambda "x" (App (Var "x") (Var "x"))) (Lambda "x" (App (Var "x") (Var "x")))
     )
     
-  , ( evaluationStep (App (Lambda 1 (Lambda 2 (Var 1))) (Lambda 1 (Var 1)))
-    , Lambda 2 (Lambda 1 (Var 1))
+  , ( evaluationStep (App (Lambda "x" (Lambda "y" (Var "x"))) (Lambda "x" (Var "x")))
+    , Lambda "y" (Lambda "x" (Var "x"))
     )
     
-  , ( evaluationStep (App (Lambda 1 (Lambda 2 (Var 2))) (Var 2))
-    , Lambda 1 (Var 1)
+  , ( evaluationStep (App (Lambda "x" (Lambda "y" (Var "y"))) (Var "y"))
+    , Lambda "1" (Var "1")
     )
   ]
   
@@ -243,43 +295,37 @@ testBools =
   ]
 
 
-extractParsed : Parsed Term -> Term
-extractParsed p =
-  List.head p
-    |> Maybe.map Tuple.first
-    |> Maybe.withDefault (Var 99)
-
 testParsing =
-  [ ( parseVar "1" |> extractParsed
-    , Var 1
+  [ ( parseVar "x" |> extractParsed
+    , Var "x"
     )
     
-  , ( parseApp "12" |> extractParsed
-    , App (Var 1) (Var 2)
+  , ( parseApp "xy" |> extractParsed
+    , App (Var "x") (Var "y")
     )
     
-  , ( parseLambda "\\1.1" |> extractParsed
-    , Lambda 1 (Var 1)
+  , ( parseLambda "\\x.x" |> extractParsed
+    , Lambda "x" (Var "x")
     )
     
-  , ( parseLambda "\\12.1" |> extractParsed
-    , Lambda 1 (Lambda 2 (Var 1))
+  , ( parseLambda "\\xy.x" |> extractParsed
+    , Lambda "x" (Lambda "y" (Var "x"))
     )
     
-  , ( parseLambda "\\12.12" |> extractParsed
-    , Lambda 1 (Lambda 2 (App (Var 1) (Var 2)))
+  , ( parseLambda "\\xy.xy" |> extractParsed
+    , Lambda "x" (Lambda "y" (App (Var "x") (Var "y")))
     )
     
-  , ( parseLambda "\\123.1" |> extractParsed
-    , Lambda 1 (Lambda 2 (Lambda 3 (Var 1)))
+  , ( parseLambda "\\xyz.x" |> extractParsed
+    , Lambda "x" (Lambda "y" (Lambda "z" (Var "x")))
     )
     
-  , ( parseTerm "(\\1.1)2" |> extractParsed
-    , App (Lambda 1 (Var 1)) (Var 2)
+  , ( parseTerm "(\\x.x)y" |> extractParsed
+    , App (Lambda "x" (Var "x")) (Var "y")
     )
     
-  , ( parseTerm "(\\1.1)23" |> extractParsed
-    , App (App (Lambda 1 (Var 1)) (Var 2)) (Var 3)
+  , ( parseTerm "(\\x.x)yz" |> extractParsed
+    , App (App (Lambda "x" (Var "x")) (Var "y")) (Var "z")
     )
   ]
 
@@ -287,13 +333,18 @@ testParsing =
 testsOk : List (a, a) -> Bool
 testsOk = List.all (uncurry (==))
 
+testsList = [testsSubstitute, testsEvaluation, testsNums, testBools, testParsing]
 
 allTestsOk : Bool
 allTestsOk =
-  let
-    testsList = [testsSubstitute, testsEvaluation, testsNums, testBools, testParsing]
-  in
-    List.all testsOk testsList
+  List.all testsOk testsList
+
+
+showFailedTests : String
+showFailedTests = 
+  testsList
+    |> List.map (List.filter (uncurry (/=)))
+    |> toString
 
 
 
@@ -302,7 +353,7 @@ allTestsOk =
 
 ------------------------------- LAMBDA CALCULUS ENGINE ----------------------
 
-type alias VarName = Int
+type alias VarName = String
 
 type Term = Var VarName | Lambda VarName Term | App Term Term
 
@@ -310,16 +361,48 @@ showTerm : Term -> String
 showTerm t =
   case t of
     Var a -> 
-      toString a
+      if String.length a == 1 then
+        a
+      else
+        "`" ++ a ++ "`"
     Lambda a t ->
-      "\\" ++ toString a ++ "." ++ showTerm t
+      "\\" ++ a ++ "." ++ showTerm t
     App t1 t2 ->
-      "(" ++ showTerm t1 ++ ")(" ++ showTerm t2 ++ ")"
+      let
+        showLeft =
+          case t1 of
+            Lambda _ _ ->
+              "(" ++ showTerm t1 ++ ")"
+            _ ->
+              showTerm t1
+        showRight =
+          case t2 of
+            App _ _ ->
+              "(" ++ showTerm t2 ++ ")"
+            _ ->
+              showTerm t2
+      in
+        showLeft ++ " " ++ showRight
 
+
+getInts : Set String -> Set Int
+getInts set =
+  Set.toList set
+    |> List.map (String.toInt >> Result.toMaybe)
+    |> List.filterMap (\x->x)
+    |> Set.fromList
 
 -- first variable name that is not contained in the given set
 findUnusedVar : Set VarName -> VarName
-findUnusedVar s =
+findUnusedVar set =
+  let
+    ints = getInts set
+    free = findUnusedInt ints
+  in
+    toString free
+
+findUnusedInt : Set Int -> Int
+findUnusedInt s =
   let
     find s x =
       if Set.member x s then

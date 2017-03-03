@@ -5,7 +5,7 @@ type alias Parser a = (String -> Parsed a)
 type alias Parsed a = List (a, String)
 
 parens : Parser a -> Parser a
-parens p = char '(' >>> p <<< char ')'
+parens p = char '(' *> p <* char ')'
 
 eof : Parser ()
 eof str =
@@ -23,7 +23,7 @@ anyChar str =
 
 int : Parser Int
 int =
-  maybe (pChar '-' || pChar '+') >>= \maybeSign ->
+  maybe (pChar '-' +++ pChar '+') >>= \maybeSign ->
   many1 (pOneOf "0123456789") >>= \digits ->
   return (
     let
@@ -65,6 +65,10 @@ while predicate str =
   in
     [(matching, rest)]
 
+restOfLine : Parser String
+restOfLine =
+  while ((/=) '\n') <* pChar '\n'
+
 sat : (Char -> Bool) -> Parser Char
 sat f =
   anyChar
@@ -80,11 +84,11 @@ oneOf s =
 
 maybe : Parser a -> Parser (Maybe a)
 maybe p =
-  map Just p || return Nothing
+  map Just p +++ return Nothing
     |> head
 
 many : Parser a -> Parser (List a)
-many p = many1 p || return []
+many p = many1 p +++ return []
 
 many1 : Parser a -> Parser (List a)
 many1 p = p >>= \x ->
@@ -92,20 +96,20 @@ many1 p = p >>= \x ->
                 return (x::xs)
 
 
-(<<<) : Parser a -> Parser b -> Parser a
-(<<<) pa pb =
+(<*) : Parser a -> Parser b -> Parser a
+(<*) pa pb =
   pa >>= \a ->
   pb >>= \_ ->
   return a
 
-(>>>) : Parser a -> Parser b -> Parser b
-(>>>) pa pb =
+(*>) : Parser a -> Parser b -> Parser b
+(*>) pa pb =
   pa >>= \_ ->
   pb >>= \b ->
   return b
 
-(||) : Parser a -> Parser a -> Parser a
-(||) a b str =
+(+++) : Parser a -> Parser a -> Parser a
+(+++) a b str =
   let
     resA = a str
   in
