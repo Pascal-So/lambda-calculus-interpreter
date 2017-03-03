@@ -1,7 +1,11 @@
 import Html exposing (Html, text)
-import Html.Attributes
+import Html.Attributes exposing (style)
 import Html.Events
 import Set exposing (Set)
+import Char
+import Dict exposing (Dict)
+
+import Debug exposing (log)
 
 
 --------------------------- MAIN ------------------------------------------
