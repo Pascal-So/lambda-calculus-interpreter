@@ -88,7 +88,7 @@ view model =
         ]
 
 
-
+{-
 runProgram : String -> Result String (List (List Term))
 runProgram str =
     (parseProgram <* Parser.eof) str
@@ -110,6 +110,47 @@ runProgram str =
        )
     |> Result.map (List.map Lambda.evaluateStepwise << programToExpressions)
 
+-}
+
+runParser : Parser a -> String -> Result String a
+runParser p str =
+    p str
+    |> List.head
+    |> Result.fromMaybe "Could not parse Program"
+    |> Result.andThen (\(result, rest) ->
+        if String.isEmpty rest then
+            Ok result
+        else
+            Err "Not entire line parsed"
+    )
+
+numberItems : List a -> List (Int, a)
+numberItems = List.indexedMap (\id a -> (id+1, a))
+
+sequenceResults : List (Result x a) -> Result x (List a)
+sequenceResults = List.foldr (Result.map2 (::)) (Ok [])
+
+
+runProgram : String -> Result String (List (List Term))
+runProgram str =
+    String.lines str
+    
+    |> List.map String.trim
+    |> numberItems
+    
+    |> List.filter (not << String.isEmpty << Tuple.second)
+    |> List.map (Tuple.mapSecond (runParser parseProgramLine))
+    |> List.map (\(id, a) -> Result.mapError (\error -> toString id ++ ": " ++ error) a)
+    
+    |> sequenceResults
+    |> log "pt a"
+    |> Result.andThen (\program ->
+         if hasDuplicateVars program then
+             Err "Some variables have been assigned twice"
+         else
+             Ok program
+       )
+    |> Result.map (List.map Lambda.evaluateStepwise << programToExpressions)
 
 
 ------------- Wrapper Language Transformer ---------------
@@ -185,13 +226,6 @@ hasDuplicateVars prog =
 type ProgramLine = Assignment Lambda.VarName Term | Expression Term
 
 
-parseComment : Parser ()
-parseComment =
-    Parser.char '#' *>
-    Parser.restOfLine *>
-    Parser.return ()
-
-
 parseAssignment : Parser ProgramLine
 parseAssignment =
     LambdaParser.parseVarName >>= \varname ->
@@ -205,6 +239,15 @@ parseExpression : Parser ProgramLine
 parseExpression =
     LambdaParser.parseTerm >>= \term ->
     Parser.return (Expression term)
+
+
+parseProgramLine : Parser ProgramLine
+parseProgramLine =
+    Parser.whitespace *>
+    parseAssignment +++ parseExpression >>= \line ->
+    Parser.whitespace *>
+    Parser.return line
+
 
 
 parseProgram : Parser (List ProgramLine)
