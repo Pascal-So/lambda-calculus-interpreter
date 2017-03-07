@@ -3,13 +3,18 @@
 <head>
 <title>LC</title>
 <style type="text/css" media="screen">
-    body, html{
+    body{
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
+        padding-top: 10px;
+        padding-bottom: 80px;
         background-color: #272727;
         color: #ddd;
         font-family: 'Open Sans', sans-serif;
         text-align: center;
+        position: relative;
+        min-height: 100vh;
     }
 
     #editor { 
@@ -18,8 +23,9 @@
     }
 
     .center-column{
-        max-width: 900px;
-        margin: auto;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .errorLine {
@@ -28,27 +34,92 @@
         z-index: 20
     }
 
+    .align-right{
+        text-align: right;
+    }
+    .align-left{
+        text-align: left;
+    }
 
+
+    button{
+        border: 1px solid #484848;
+        background-color: #ddd;
+        border-radius: 1px;
+        color: #282828;
+        font-size: 18px;
+        padding: 6px 16px;
+        margin: 0;
+    }
+    button:hover{
+        background-color: #fff;
+    }
+
+    section{
+        margin-top: 40px;
+    }
+    code{
+        border: 1px solid #484848;
+        background-color: #373737;
+        border-radius: 3px;
+        padding: 1px 3px;
+        font-weight: lighter;
+    }
+
+
+    p{
+        font-size: 20px;
+    }
+    a{
+        color: #ccc;
+        text-decoration: none;
+    }
+    a:hover{
+        color: white;
+    }
+
+    footer{
+        position: absolute;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        padding: 1px 10px;
+        background-color: #222;
+        color: #aaa;
+        z-index: 100;
+    }
+    footer p{
+        font-size: 14px;
+    }
 </style>
 </head>
 <body>
 
-<h1>ASDF</h1>
+<h1>Lambda Calculus Interpreter</h1>
 
-<div class="center-column">
+<section class="center-column align-left">
 
-    <p>asdff</p>
+    <h2>Syntax</h2>
+    <p>Lambda abstractions can be defined using a backslash. <code>\x.x</code>, for example, denotes the identity function, where <code>x</code> is a variable. Note, that, since dropping the additional backslashes for multi-argument functions is allowed, <code>\fx.fx</code> is equivalent to <code>\f.\x.fx</code>.</p>
+    <p>Variables are usually single characters, but multi-character variables can be used by enclosing them in backquotes: <code>`func`x</code></p> 
+    <p>Lowercase and uppercase letters, as well as digits are allowed in variable names.</p>
 
-    <div id="editor">\x.x</div>
+</section>
+
+<section class="center-column">
+    <div id="editor"></div>
 
     <br>
 
     <button id="bt-evaluate">Evaluate</button>
 
     <div id="result-viewer"></div>
+</section>
 
-</div>
 
+<footer class="align-right">
+    <p>Pascal Sommer, 2017 - <a href="http://twitter.com/sommerpascal">@SommerPascal</a></p>
+</footer>
 
 
     
@@ -107,12 +178,12 @@
 
     // receive errors in code by elm app
     elmApp.ports.errors.subscibe(function(errors){
-        console.log("errors returned from elm", errors);
+        //console.log("errors returned from elm", errors);
 
-        var errorLines = []
-        errorLines.map(function(line){
-            markLine(line, "errorLine");
-        })
+        // errors :: [Int]
+        errors.map(function(errorLine){
+            markLine(errorLine, "errorLine");
+        });
     })
 
     
