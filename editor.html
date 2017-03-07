@@ -1,25 +1,121 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-	<title>Lambda Calculus interpreter</title>
+<title>LC</title>
+<style type="text/css" media="screen">
+    body, html{
+        margin: 0;
+        padding: 0;
+        background-color: #272727;
+        color: #ddd;
+        font-family: 'Open Sans', sans-serif;
+        text-align: center;
+    }
 
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.24.2/codemirror.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.24.2/mode/javascript/javascript.js"></script>
+    #editor { 
+        width: 100%;
+        height: 200px;
+    }
 
-	<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.24.2/codemirror.css">
+    .center-column{
+        max-width: 900px;
+        margin: auto;
+    }
 
-	<script type="text/javascript">
-		function loadCodeEditor(){
-			var codeArea = document.getElementById("codeArea");
-			var myCodeMirror = CodeMirror.fromTextArea(codeArea);
-			console.log("asdf");
-		}
+    .errorLine {
+        position: absolute;
+        background: rgba(200, 100, 100, 0.5);
+        z-index: 20
+    }
 
-	</script>
+
+</style>
 </head>
-<body onload="loadCodeEditor()">
+<body>
 
-<textarea id="codeArea"></textarea>
-aa
+<h1>ASDF</h1>
+
+<div class="center-column">
+
+    <p>asdff</p>
+
+    <div id="editor">\x.x</div>
+
+    <br>
+
+    <button id="bt-evaluate">Evaluate</button>
+
+    <div id="result-viewer"></div>
+
+</div>
+
+
+
+    
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript" charset="utf-8"></script>
+<script>
+    // setup editor
+    var editor = ace.edit("editor");
+    var Range = ace.require('ace/range').Range // get reference to ace/range
+    editor.setTheme("ace/theme/chrome");
+    editor.setOptions({
+        fontSize: "13pt"
+    });
+
+    // bind evaluate shortcut and button
+    editor.commands.addCommand({
+        name: 'evaluate',
+        bindKey: {win: "Alt-R", "mac": "Alt-R"},
+        exec: function(editor) {
+            evaluate();
+        }
+    });
+    document.getElementById("bt-evaluate").onclick = evaluate; // maybe move this to some kind of document ready
+
+
+    // add line marker functionality. The id of the current marker is stored
+    // in currentMark, it is used to remove it by reference
+    var currentMark = null;
+    function removeMark(){
+        if(currentMark != null) {
+            editor.session.removeMarker(currentMark);
+        }
+    }
+    function markLine(line, type){
+        removeMark();
+        line--;
+        currentMark = editor.session.addMarker(
+            new Range(line, 0, line, 1), type, "fullLine"
+        );
+    }
+    editor.on("input", function() {
+        removeMark();
+    });
+
+
+    // send the code to elm for evaluation
+    function evaluate(){
+        var code = editor.getValue();
+        elmApp.ports.evaluate.send(code);
+    }
+    
+
+    // setup elm app
+    var viewer = document.getElementById("result-viewer");
+    var elmApp = Elm.Lambda.embed(viewer);
+
+
+    // receive errors in code by elm app
+    elmApp.ports.errors.subscibe(function(errors){
+        console.log("errors returned from elm", errors);
+
+        var errorLines = []
+        errorLines.map(function(line){
+            markLine(line, "errorLine");
+        })
+    })
+
+    
+</script>
 </body>
 </html>
