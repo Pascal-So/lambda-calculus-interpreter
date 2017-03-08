@@ -3,6 +3,7 @@ import Html.Attributes exposing (style)
 import Html.Events
 import Set exposing (Set)
 import Char
+import Array exposing (Array)
 import Dict exposing (Dict)
 
 import Debug exposing (log)
@@ -162,7 +163,7 @@ setFilterMap : (comparable -> Maybe comparable1) -> Set comparable -> Set compar
 setFilterMap f = Set.fromList << List.filterMap f << Set.toList
 
 
-getAssignmentsIdDict : List ProgramLine -> Dict VarName Int
+getAssignmentsIdDict : List ProgramLine -> Dict Lambda.VarName Int
 getAssignmentsIdDict lst =
   indexList lst
   |> List.filterMap (\(id, line) ->
@@ -180,7 +181,7 @@ getDependencyGraph lst =
     definitions = getAssignmentsIdDict lst
     
   in
-    getDependencies lst
+    List.map getDependencies lst
     |> List.map (
          setFilterMap (\dep ->
            Dict.get dep definitions
@@ -231,25 +232,52 @@ topoSort : Graph a -> List Int
 topoSort _ = []
 
 
+dfs_ : (Int -> a -> b -> b) -> b -> Array Bool -> Int -> Graph a -> (Array Int, b)
+dfs_ onDiscover state seen currentId graph =
+    let
+        alreadySeen = Array.get currentId seen |> Maybe.withDefault False
+    in
+        if alreadySeen then
+            (seen, state)
+        else
+            let
+                outE = getOutEdges currentId graph
+                newSeen = Array.set currentId True seen
+                newState = getValue currentId graph
+                    |> Maybe.map (\val ->
+                            onDiscover currentId val state
+                        )
+                    |> Maybe.withDefault state
+                
+
+
+{-
+
+dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
+dfs onDiscover state graph =
+    
+-}
+
+{-
 dfs_ : (Int -> a -> b -> b) -> b -> Int -> Set Int -> Graph a -> (Set Int, b)
 dfs_ onDiscover state currentId seen graph =
-  let
-    outE = getOutEdges currentId graph
-      |> Maybe.withDefault Set.empty
-    alreadySeen = Set.member currentId seen
-    newSeen = Set.insert currentId seen
-    unseen = Set.diff outE newSeen
-    newState = getValue currentId graph
-      |> Maybe.map (\value -> onDiscover currentId value state)
-      |> Maybe.withDefault state
-  in
-    if alreadySeen then
-      (seen, state)
-    else
-      Set.foldl 
-        (\id (seen, state) -> dfs_ onDiscover state id seen graph)
-        (newSeen, newState) unseen
-
+    let
+        outE = getOutEdges currentId graph
+            |> Maybe.withDefault Set.empty
+        alreadySeen = Set.member currentId seen
+        newSeen = Set.insert currentId seen
+        unseen = Set.diff outE newSeen
+        newState = getValue currentId graph
+            |> Maybe.map (\value -> onDiscover currentId value state)
+            |> Maybe.withDefault state
+    in
+        if alreadySeen then
+            (seen, state)
+        else
+            Set.foldl 
+                (\id (seen, state) -> dfs_ onDiscover state id seen graph)
+                (newSeen, newState) unseen
+-}
 {-
 dfs : (Int -> a -> b -> b) -> b -> Int -> Graph a -> b
 dfs onDiscover state id = 
@@ -257,26 +285,27 @@ dfs onDiscover state id =
   >> Tuple.second
 -}
 
-
+{-
 dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
 dfs onDiscover state graph =
-  let
-    n = Array.length graph
-    unseen = List.range 0 (n-1)
-      |> Set.fromList
-  in
-    
+    let
+        n = Array.length graph
+        unseen = List.range 0 (n-1)
+            |> Set.fromList
+        
+    in
+-}    
     
   
   
 
 ------------- Wrapper Language Transformer ---------------
 
-getDependencies : ProgramLine -> Set VarName
+getDependencies : ProgramLine -> Set Lambda.VarName
 getDependencies line =
     case line of
-        Expression term -> getFreeVars term
-        Assignment _ term -> getFreeVars term
+        Expression term -> Lambda.getFreeVars term
+        Assignment _ term -> Lambda.getFreeVars term
 
 
 getAssignmentsDict : List ProgramLine -> Dict Lambda.VarName Term
