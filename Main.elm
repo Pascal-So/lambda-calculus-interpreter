@@ -153,6 +153,74 @@ runProgram str =
     |> Result.map (List.map Lambda.evaluateStepwise << programToExpressions)
 
 
+----------------- Dependency Graph ------------------------------
+
+indexList : List a -> List (Int, a)
+indexList = List.indexedMap (,)
+
+setFilterMap : (comparable -> Maybe comparable1) -> Set comparable -> Set comparable1
+setFilterMap f = Set.fromList << List.filterMap f << Set.toList
+
+
+getAssignmentsIdDict : List ProgramLine -> Dict VarName Int
+getAssignmentsIdDict lst =
+  indexList lst
+  |> List.filterMap (\(id, line) ->
+       case line of 
+         Expression _ -> Nothing
+         Assignment name term -> Just (name, id)
+     )
+  |> Dict.fromList
+
+
+getDependencyGraph : List ProgramLine -> Graph ProgramLine
+getDependencyGraph lst = 
+  let
+    baseGraph = fromVerts lst
+    definitions = getAssignmentsIdDict lst
+    
+  in
+    getDependencies lst
+    |> List.map (
+         setFilterMap (\dep ->
+           Dict.get dep definitions
+         )
+       )
+    |> indexList
+    |> List.foldr (\(id, deps)-> addEdges id deps) baseGraph
+
+
+
+------------- Graph library --------------------------
+
+
+updateArr : Int -> (a -> a) -> Array a -> Array a
+updateArr pos func arr =
+  Array.get pos arr
+  |> Maybe.map func
+  |> Maybe.map (\upd -> Array.set pos upd arr)
+  |> Maybe.withDefault arr
+  
+
+type alias Graph a = Array (a, Set Int)
+
+addEdge : Int -> Int -> Graph a -> Graph a
+addEdge a b =
+  updateArr a (Tuple.mapSecond (Set.insert b))
+
+addEdges : Int -> Set Int -> Graph a -> Graph a
+addEdges a bs =
+  updateArr a (Tuple.mapSecond (Set.union bs))
+  
+
+fromVerts : List a -> Graph a
+fromVerts lst =
+  lst
+  |> List.map (\node -> (node, Set.empty))
+  |> Array.fromList
+
+
+
 ------------- Wrapper Language Transformer ---------------
 
 getAssignmentsDict : List ProgramLine -> Dict Lambda.VarName Term
