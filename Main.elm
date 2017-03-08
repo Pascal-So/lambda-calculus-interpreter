@@ -191,6 +191,7 @@ getDependencyGraph lst =
 
 
 
+
 ------------- Graph library --------------------------
 
 
@@ -220,8 +221,63 @@ fromVerts lst =
   |> Array.fromList
 
 
+getOutEdges : Int -> Graph a -> Maybe (Set Int)
+getOutEdges id = Maybe.map Tuple.second << Array.get id
+
+getValue : Int -> Graph a -> Maybe a
+getValue id = Maybe.map Tuple.first << Array.get id
+
+topoSort : Graph a -> List Int
+topoSort _ = []
+
+
+dfs_ : (Int -> a -> b -> b) -> b -> Int -> Set Int -> Graph a -> (Set Int, b)
+dfs_ onDiscover state currentId seen graph =
+  let
+    outE = getOutEdges currentId graph
+      |> Maybe.withDefault Set.empty
+    alreadySeen = Set.member currentId seen
+    newSeen = Set.insert currentId seen
+    unseen = Set.diff outE newSeen
+    newState = getValue currentId graph
+      |> Maybe.map (\value -> onDiscover currentId value state)
+      |> Maybe.withDefault state
+  in
+    if alreadySeen then
+      (seen, state)
+    else
+      Set.foldl 
+        (\id (seen, state) -> dfs_ onDiscover state id seen graph)
+        (newSeen, newState) unseen
+
+{-
+dfs : (Int -> a -> b -> b) -> b -> Int -> Graph a -> b
+dfs onDiscover state id = 
+  dfs_ onDiscover state id Set.empty
+  >> Tuple.second
+-}
+
+
+dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
+dfs onDiscover state graph =
+  let
+    n = Array.length graph
+    unseen = List.range 0 (n-1)
+      |> Set.fromList
+  in
+    
+    
+  
+  
 
 ------------- Wrapper Language Transformer ---------------
+
+getDependencies : ProgramLine -> Set VarName
+getDependencies line =
+    case line of
+        Expression term -> getFreeVars term
+        Assignment _ term -> getFreeVars term
+
 
 getAssignmentsDict : List ProgramLine -> Dict Lambda.VarName Term
 getAssignmentsDict lines =
