@@ -114,8 +114,6 @@
 
     <br>
 
-    <button id="bt-evaluate">Evaluate</button>
-
     <div id="result-viewer"></div>
 </section>
 
@@ -135,16 +133,6 @@
     editor.setOptions({
         fontSize: "13pt"
     });
-
-    // bind evaluate shortcut and button
-    editor.commands.addCommand({
-        name: 'evaluate',
-        bindKey: {win: "Alt-R", "mac": "Alt-R"},
-        exec: function(editor) {
-            evaluate();
-        }
-    });
-    document.getElementById("bt-evaluate").onclick = evaluate; // maybe move this to some kind of document ready
 
 
     // add line marker functionality. The id of the current marker is stored
@@ -177,7 +165,7 @@
 
     // setup elm app
     var viewer = document.getElementById("result-viewer");
-    var elmApp = Elm.Main.embed(viewer);
+    var elmApp = Elm.EmbeddedLambda.embed(viewer);
 
 
     // receive errors in code by elm app
