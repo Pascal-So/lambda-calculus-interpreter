@@ -206,6 +206,14 @@ updateArr pos func arr =
 
 type alias Graph a = Array (a, Set Int)
 
+showGraph : Graph a -> List String
+showGraph graph = 
+    Array.toList graph
+    |> List.map (\(val, conns) -> 
+           toString val ++ " - " ++ toString (Set.toList conns)
+       )
+
+
 addEdge : Int -> Int -> Graph a -> Graph a
 addEdge a b =
   updateArr a (Tuple.mapSecond (Set.insert b))
@@ -228,8 +236,31 @@ getOutEdges id = Maybe.map Tuple.second << Array.get id
 getValue : Int -> Graph a -> Maybe a
 getValue id = Maybe.map Tuple.first << Array.get id
 
+mapHead : (a -> a) -> List a -> List a
+mapHead f lst =
+    case lst of
+        []      -> []
+        (x::xs) -> (f x) :: xs
+
 topoSort : Graph a -> List Int
-topoSort _ = []
+topoSort graph = 
+    let
+        onDiscover = (\id _ state -> mapHead ((::) id) state)
+        state = [[]]
+        size = getSize graph
+        noneSeen = Array.repeat size False
+        visitRest seen state =
+            case getFirstId not seen of
+                Nothing -> state
+                Just id ->
+                    let
+                        (nSeen, nState) = dfs_ onDiscover state seen id graph
+                    in
+                        visitRest nSeen ([] :: nState)
+    in
+        visitRest noneSeen state
+        |> List.map List.reverse
+        |> List.concat
 
 
 getFirstId : (a -> Bool) -> Array a -> Maybe Int
