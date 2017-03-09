@@ -134,24 +134,34 @@ sequenceResults = List.foldr (Result.map2 (::)) (Ok [])
 
 runProgram : String -> Result String (List (List Term))
 runProgram str =
-    String.lines str
-    
-    |> List.map String.trim
-    |> numberItems
-    
-    |> List.filter (not << String.isEmpty << Tuple.second)
-    |> List.map (Tuple.mapSecond (runParser parseProgramLine))
-    |> List.map (\(id, a) -> Result.mapError (\error -> toString id ++ ": " ++ error) a)
-    
-    |> sequenceResults
-    |> log "pt a"
+  (parseProgram <<< pEOF) str
+    -- |> log "parse"
+    |> List.head 
+    |> Maybe.map Tuple.first
+    |> Result.fromMaybe "Could not parse program"
+    |> Result.andThen (\program ->
+         if List.isEmpty program then
+           Err "Empty program" 
+         else
+           Ok program
+       )
     |> Result.andThen (\program ->
          if hasDuplicateVars program then
-             Err "Some variables have been assigned twice"
+           Err "Some variables have been assigned twice"
          else
-             Ok program
+           Ok program
        )
-    |> Result.map (List.map Lambda.evaluateStepwise << programToExpressions)
+    |> Result.andThen (\program ->
+         let
+           graph = getDependencyGraph program
+           loops = hasLoop graph
+         in
+           if loops then
+             Err "The dependency graph contains a loop"
+           else
+             Ok graph
+       )
+    |> Result.map evaluateProgramGraph
 
 
 ----------------- Dependency Graph ------------------------------
