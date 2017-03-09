@@ -458,7 +458,69 @@ hasDuplicateVars prog =
     in
         len /= uniqueLen
 
+flattenMaybe : Maybe (Maybe a) -> Maybe a
+flattenMaybe m =
+    case m of
+        Nothing -> Nothing
+        Just a  -> a
 
+
+getTerm : Int -> Graph ProgramLine -> Maybe Term
+getTerm id graph =
+    getValue id graph
+    |> Maybe.map (\val ->
+           case val of
+               Assignment _ term -> term
+               Expression term   -> term
+       )
+
+getDependencyName : Int -> Graph ProgramLine -> Maybe VarName
+getDependencyName id graph =
+    getValue id graph
+    |> Maybe.andThen (\val ->
+           case val of
+               Assignment name _ -> Just name
+               Expression _      -> Nothing
+       )
+
+transposeTupleMaybe : (Maybe a, Maybe b) -> Maybe (a, b)
+transposeTupleMaybe pair =
+    case pair of
+        (Just a, Just b) -> Just (a, b)
+        _                -> Nothing
+
+
+-- is already cycle free
+evaluateProgramGraph : Graph ProgramLine -> List (List Term)
+evaluateProgramGraph graph = 
+    let
+        evalOrder = topoSort graph
+            |> List.reverse
+        size = getSize graph
+        evaluated = Array.repeat size Nothing
+    in
+        List.foldl (\id evaluated ->
+            let
+                deps = getOutEdges id graph
+                    |> Maybe.withDefault Set.empty
+                    |> Set.toList
+                    |> List.map (\id -> 
+                           Array.get id evaluated
+                           |> flattenMaybe
+                           |> Maybe.andThen last
+                           |> (\val -> (getDependencyName id graph, val))
+                           |> transposeTupleMaybe
+                       )
+                    |> List.filterMap identity
+                    |> Dict.fromList
+                evaluatedTerm = getTerm id graph
+                    |> Maybe.map (evaluateStepwise << wrapInLambdas deps)
+            in
+                Array.set id evaluatedTerm evaluated
+        ) evaluated evalOrder
+        |> Array.toList
+        |> List.filterMap identity
+  
 
 ------------ Wrapper Language Parser ----------------------
 
