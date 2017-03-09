@@ -232,7 +232,20 @@ topoSort : Graph a -> List Int
 topoSort _ = []
 
 
-dfs_ : (Int -> a -> b -> b) -> b -> Array Bool -> Int -> Graph a -> (Array Int, b)
+getFirstId : (a -> Bool) -> Array a -> Maybe Int
+getFirstId pred arr =
+    Array.toIndexedList arr
+    |> List.filter (\(id, val) ->
+           pred val
+       )
+    |> List.map Tuple.first
+    |> List.head
+    
+getSize : Graph a -> Int
+getSize = Array.length
+
+
+dfs_ : (Int -> a -> b -> b) -> b -> Array Bool -> Int -> Graph a -> (Array Bool, b)
 dfs_ onDiscover state seen currentId graph =
     let
         alreadySeen = Array.get currentId seen |> Maybe.withDefault False
@@ -241,62 +254,37 @@ dfs_ onDiscover state seen currentId graph =
             (seen, state)
         else
             let
-                outE = getOutEdges currentId graph
                 newSeen = Array.set currentId True seen
                 newState = getValue currentId graph
                     |> Maybe.map (\val ->
                             onDiscover currentId val state
                         )
                     |> Maybe.withDefault state
-                
+            in
+                getOutEdges currentId graph
+                |> Maybe.withDefault Set.empty
+                |> Set.foldl (\id (seen, state) -> 
+                       dfs_ onDiscover state seen id graph
+                   ) (newSeen, newState)
 
 
-{-
 
 dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
-dfs onDiscover state graph =
-    
--}
-
-{-
-dfs_ : (Int -> a -> b -> b) -> b -> Int -> Set Int -> Graph a -> (Set Int, b)
-dfs_ onDiscover state currentId seen graph =
+dfs onDiscover state graph = 
     let
-        outE = getOutEdges currentId graph
-            |> Maybe.withDefault Set.empty
-        alreadySeen = Set.member currentId seen
-        newSeen = Set.insert currentId seen
-        unseen = Set.diff outE newSeen
-        newState = getValue currentId graph
-            |> Maybe.map (\value -> onDiscover currentId value state)
-            |> Maybe.withDefault state
+        size = getSize graph
+        noneSeen = Array.repeat size False
+        visitRest seen state =
+            case getFirstId not seen of
+                Nothing -> state
+                Just id ->
+                    let
+                        (nSeen, nState) = dfs_ onDiscover state seen id graph
+                    in
+                        visitRest nSeen nState
     in
-        if alreadySeen then
-            (seen, state)
-        else
-            Set.foldl 
-                (\id (seen, state) -> dfs_ onDiscover state id seen graph)
-                (newSeen, newState) unseen
--}
-{-
-dfs : (Int -> a -> b -> b) -> b -> Int -> Graph a -> b
-dfs onDiscover state id = 
-  dfs_ onDiscover state id Set.empty
-  >> Tuple.second
--}
+        visitRest noneSeen state
 
-{-
-dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
-dfs onDiscover state graph =
-    let
-        n = Array.length graph
-        unseen = List.range 0 (n-1)
-            |> Set.fromList
-        
-    in
--}    
-    
-  
   
 
 ------------- Wrapper Language Transformer ---------------
