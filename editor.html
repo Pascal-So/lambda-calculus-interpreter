@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <title>LC</title>
+
+<script type="text/javascript" src="main.js"></script>
+
 <style type="text/css" media="screen">
     body{
         box-sizing: border-box;
@@ -174,7 +177,7 @@
 
     // setup elm app
     var viewer = document.getElementById("result-viewer");
-    var elmApp = Elm.Lambda.embed(viewer);
+    var elmApp = Elm.Main.embed(viewer);
 
 
     // receive errors in code by elm app

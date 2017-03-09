@@ -11,6 +11,7 @@ import Debug exposing (log)
 import Parser exposing ((<*), (*>), (+++), (>>=), Parser)
 import Lambda exposing (Term)
 import LambdaParser
+import Graph exposing (Graph)
 
 --------------------------- MAIN ------------------------------------------
 
@@ -134,7 +135,7 @@ sequenceResults = List.foldr (Result.map2 (::)) (Ok [])
 
 runProgram : String -> Result String (List (List Term))
 runProgram str =
-  (parseProgram <<< pEOF) str
+  (parseProgram <* Parser.eof) str
     -- |> log "parse"
     |> List.head 
     |> Maybe.map Tuple.first
@@ -154,7 +155,7 @@ runProgram str =
     |> Result.andThen (\program ->
          let
            graph = getDependencyGraph program
-           loops = hasLoop graph
+           loops = Graph.hasLoop graph
          in
            if loops then
              Err "The dependency graph contains a loop"
@@ -187,7 +188,7 @@ getAssignmentsIdDict lst =
 getDependencyGraph : List ProgramLine -> Graph ProgramLine
 getDependencyGraph lst = 
   let
-    baseGraph = fromVerts lst
+    baseGraph = Graph.fromVerts lst
     definitions = getAssignmentsIdDict lst
     
   in
@@ -198,203 +199,11 @@ getDependencyGraph lst =
          )
        )
     |> indexList
-    |> List.foldr (\(id, deps)-> addEdges id deps) baseGraph
+    |> List.foldr (\(id, deps)-> Graph.addEdges id deps) baseGraph
 
 
 
 
-------------- Graph library --------------------------
-
-
-updateArr : Int -> (a -> a) -> Array a -> Array a
-updateArr pos func arr =
-  Array.get pos arr
-  |> Maybe.map func
-  |> Maybe.map (\upd -> Array.set pos upd arr)
-  |> Maybe.withDefault arr
-  
-
-type alias Graph a = Array (a, Set Int)
-
-showGraph : Graph a -> List String
-showGraph graph = 
-    Array.toList graph
-    |> List.map (\(val, conns) -> 
-           toString val ++ " - " ++ toString (Set.toList conns)
-       )
-
-
-addEdge : Int -> Int -> Graph a -> Graph a
-addEdge a b =
-  updateArr a (Tuple.mapSecond (Set.insert b))
-
-addEdges : Int -> Set Int -> Graph a -> Graph a
-addEdges a bs =
-  updateArr a (Tuple.mapSecond (Set.union bs))
-  
-
-fromVerts : List a -> Graph a
-fromVerts lst =
-  lst
-  |> List.map (\node -> (node, Set.empty))
-  |> Array.fromList
-
-
-getOutEdges : Int -> Graph a -> Maybe (Set Int)
-getOutEdges id = Maybe.map Tuple.second << Array.get id
-
-getValue : Int -> Graph a -> Maybe a
-getValue id = Maybe.map Tuple.first << Array.get id
-
-mapHead : (a -> a) -> List a -> List a
-mapHead f lst =
-    case lst of
-        []      -> []
-        (x::xs) -> (f x) :: xs
-
-topoSort : Graph a -> List Int
-topoSort graph = 
-    let
-        onDiscover = (\id _ state -> mapHead ((::) id) state)
-        state = [[]]
-        size = getSize graph
-        noneSeen = Array.repeat size False
-        visitRest seen state =
-            case getFirstId not seen of
-                Nothing -> state
-                Just id ->
-                    let
-                        (nSeen, nState) = dfs_ onDiscover state seen id graph
-                    in
-                        visitRest nSeen ([] :: nState)
-    in
-        visitRest noneSeen state
-        |> List.map List.reverse
-        |> List.concat
-
-
-getFirstId : (a -> Bool) -> Array a -> Maybe Int
-getFirstId pred arr =
-    Array.toIndexedList arr
-    |> List.filter (\(id, val) ->
-           pred val
-       )
-    |> List.map Tuple.first
-    |> List.head
-    
-getSize : Graph a -> Int
-getSize = Array.length
-
-
-hasLoop_ : Array Bool -> Array Bool -> Int -> Graph a -> (Array Bool, Bool)
-hasLoop_ active seen currentId graph =
-    let
-        alreadySeen = Array.get currentId seen |> Maybe.withDefault False
-        alreadyActive = Array.get currentId active |> Maybe.withDefault False
-    in
-        if alreadySeen then
-            (seen, alreadyActive)
-        else
-            let
-                newSeen = Array.set currentId True seen
-                newActive = Array.set currentId True active
-            in
-                getOutEdges currentId graph
-                |> Maybe.withDefault Set.empty
-                |> Set.foldl (\id (seen, loop) -> 
-                       let
-                           (newSeen, newLoop) = hasLoop_ newActive seen id graph
-                       in
-                           (newSeen, newLoop || loop)
-                   ) (newSeen, False)
-        
-
-hasLoop : Graph a -> Bool
-hasLoop graph = 
-    let
-        size = getSize graph
-        noneSeen = Array.repeat size False
-        noneActive = noneSeen
-        visitRest seen =
-            case getFirstId not seen of
-                Nothing -> False
-                Just id ->
-                    let
-                        (newSeen, loop) = hasLoop_ noneActive seen id graph
-                    in
-                        if loop then
-                            True
-                        else
-                            visitRest newSeen
-    in
-        visitRest noneSeen
-
-
-dfs_ : (Int -> a -> b -> b) -> b -> Array Bool -> Int -> Graph a -> (Array Bool, b)
-dfs_ onDiscover state seen currentId graph =
-    let
-        alreadySeen = Array.get currentId seen |> Maybe.withDefault False
-    in
-        if alreadySeen then
-            (seen, state)
-        else
-            let
-                newSeen = Array.set currentId True seen
-                newState = getValue currentId graph
-                    |> Maybe.map (\val ->
-                            onDiscover currentId val state
-                        )
-                    |> Maybe.withDefault state
-            in
-                getOutEdges currentId graph
-                |> Maybe.withDefault Set.empty
-                |> Set.foldl (\id (seen, state) -> 
-                       dfs_ onDiscover state seen id graph
-                   ) (newSeen, newState)
-
-
-
-dfs : (Int -> a -> b -> b) -> b -> Graph a -> b
-dfs onDiscover state graph = 
-    let
-        size = getSize graph
-        noneSeen = Array.repeat size False
-        visitRest seen state =
-            case getFirstId not seen of
-                Nothing -> state
-                Just id ->
-                    let
-                        (nSeen, nState) = dfs_ onDiscover state seen id graph
-                    in
-                        visitRest nSeen nState
-    in
-        visitRest noneSeen state
-
-prefixSum : List number -> List number
-prefixSum = Maybe.withDefault [] << List.tail << List.scanl (+) 0
-
-arrayPrefixSum : Array number -> Array number
-arrayPrefixSum = Array.fromList << prefixSum << Array.toList
-  
-
-getSubGraph : Set Int -> Graph a -> Graph a
-getSubGraph keep graph =
-    let
-        oldSize = getSize graph
-        pos = Set.foldl (\id -> Array.set id 1) (Array.repeat oldSize 0) keep
-            |> arrayPrefixSum
-            |> Array.map ((+)1)
-        mapIndex id = Array.get id pos
-          |> Maybe.withDefault 0
-    in
-        Array.toList graph
-        |> indexList
-        |> List.filter (\(id, val) ->
-              Set.member id keep
-           )
-        |> List.map Tuple.second
-        |> List.map (Tuple.mapSecond (Set.map mapIndex))
-        |> Array.fromList
 
 ------------- Wrapper Language Transformer ---------------
 
@@ -477,16 +286,16 @@ flattenMaybe m =
 
 getTerm : Int -> Graph ProgramLine -> Maybe Term
 getTerm id graph =
-    getValue id graph
+    Graph.getValue id graph
     |> Maybe.map (\val ->
            case val of
                Assignment _ term -> term
                Expression term   -> term
        )
 
-getDependencyName : Int -> Graph ProgramLine -> Maybe VarName
+getDependencyName : Int -> Graph ProgramLine -> Maybe Lambda.VarName
 getDependencyName id graph =
-    getValue id graph
+    Graph.getValue id graph
     |> Maybe.andThen (\val ->
            case val of
                Assignment name _ -> Just name
@@ -499,19 +308,21 @@ transposeTupleMaybe pair =
         (Just a, Just b) -> Just (a, b)
         _                -> Nothing
 
+last : List a -> Maybe a
+last = List.head << List.reverse
 
 -- is already cycle free
 evaluateProgramGraph : Graph ProgramLine -> List (List Term)
 evaluateProgramGraph graph = 
     let
-        evalOrder = topoSort graph
+        evalOrder = Graph.topoSort graph
             |> List.reverse
-        size = getSize graph
+        size = Graph.getSize graph
         evaluated = Array.repeat size Nothing
     in
         List.foldl (\id evaluated ->
             let
-                deps = getOutEdges id graph
+                deps = Graph.getOutEdges id graph
                     |> Maybe.withDefault Set.empty
                     |> Set.toList
                     |> List.map (\id -> 
@@ -524,7 +335,7 @@ evaluateProgramGraph graph =
                     |> List.filterMap identity
                     |> Dict.fromList
                 evaluatedTerm = getTerm id graph
-                    |> Maybe.map (evaluateStepwise << wrapInLambdas deps)
+                    |> Maybe.map (Lambda.evaluateStepwise << wrapInLambdas deps)
             in
                 Array.set id evaluatedTerm evaluated
         ) evaluated evalOrder
