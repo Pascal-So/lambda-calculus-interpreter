@@ -360,7 +360,31 @@ dfs onDiscover state graph =
     in
         visitRest noneSeen state
 
+prefixSum : List number -> List number
+prefixSum = Maybe.withDefault [] << List.tail << List.scanl (+) 0
+
+arrayPrefixSum : Array number -> Array number
+arrayPrefixSum = Array.fromList << prefixSum << Array.toList
   
+
+getSubGraph : Set Int -> Graph a -> Graph a
+getSubGraph keep graph =
+    let
+        oldSize = getSize graph
+        pos = Set.foldl (\id -> Array.set id 1) (Array.repeat oldSize 0) keep
+            |> arrayPrefixSum
+            |> Array.map ((+)1)
+        mapIndex id = Array.get id pos
+          |> Maybe.withDefault 0
+    in
+        Array.toList graph
+        |> indexList
+        |> List.filter (\(id, val) ->
+              Set.member id keep
+           )
+        |> List.map Tuple.second
+        |> List.map (Tuple.mapSecond (Set.map mapIndex))
+        |> Array.fromList
 
 ------------- Wrapper Language Transformer ---------------
 

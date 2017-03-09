@@ -161,13 +161,14 @@
     }
     editor.on("input", function() {
         removeMark();
+        evaluate();
     });
 
 
     // send the code to elm for evaluation
     function evaluate(){
         var code = editor.getValue();
-        elmApp.ports.evaluate.send(code);
+        elmApp.ports.evaluate.send(code); // code :: String
     }
     
 
