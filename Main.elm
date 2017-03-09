@@ -276,6 +276,50 @@ getSize : Graph a -> Int
 getSize = Array.length
 
 
+hasLoop_ : Array Bool -> Array Bool -> Int -> Graph a -> (Array Bool, Bool)
+hasLoop_ active seen currentId graph =
+    let
+        alreadySeen = Array.get currentId seen |> Maybe.withDefault False
+        alreadyActive = Array.get currentId active |> Maybe.withDefault False
+    in
+        if alreadySeen then
+            (seen, alreadyActive)
+        else
+            let
+                newSeen = Array.set currentId True seen
+                newActive = Array.set currentId True active
+            in
+                getOutEdges currentId graph
+                |> Maybe.withDefault Set.empty
+                |> Set.foldl (\id (seen, loop) -> 
+                       let
+                           (newSeen, newLoop) = hasLoop_ newActive seen id graph
+                       in
+                           (newSeen, newLoop || loop)
+                   ) (newSeen, False)
+        
+
+hasLoop : Graph a -> Bool
+hasLoop graph = 
+    let
+        size = getSize graph
+        noneSeen = Array.repeat size False
+        noneActive = noneSeen
+        visitRest seen =
+            case getFirstId not seen of
+                Nothing -> False
+                Just id ->
+                    let
+                        (newSeen, loop) = hasLoop_ noneActive seen id graph
+                    in
+                        if loop then
+                            True
+                        else
+                            visitRest newSeen
+    in
+        visitRest noneSeen
+
+
 dfs_ : (Int -> a -> b -> b) -> b -> Array Bool -> Int -> Graph a -> (Array Bool, b)
 dfs_ onDiscover state seen currentId graph =
     let
