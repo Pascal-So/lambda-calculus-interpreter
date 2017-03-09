@@ -1,11 +1,11 @@
-`zero` = \fx.x
-`succ` = \nfx.f(nfx)
-`plus` = \mnfx.mf(nfx)
-`mult` = \mnf.m(nf)
-`exp` = \mn.nm
-`pred` = \nfx.n(\gh.h(gf))(\u.x)(\u.u)
-`minus` = \mn.n`pred`m
+let `zero` = \fx.x
+let `succ` = \nfx.f(nfx)
+let `plus` = \mnfx.mf(nfx)
+let `mult` = \mnf.m(nf)
+let `exp` = \mn.nm
+let `pred` = \nfx.n(\gh.h(gf))(\u.x)(\u.u)
+let `minus` = \mn.n`pred`m
 
-`one` = `succ` `zero`
+let `one` = `succ` `zero`
 
 `one`

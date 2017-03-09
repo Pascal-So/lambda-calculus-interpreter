@@ -237,6 +237,8 @@ type ProgramLine = Assignment Lambda.VarName Term | Expression Term
 
 parseAssignment : Parser ProgramLine
 parseAssignment =
+    Parser.string "let" *>
+    Parser.whitespace *>
     LambdaParser.parseVarName >>= \varname ->
     Parser.whitespace *>
     Parser.char '=' *>
