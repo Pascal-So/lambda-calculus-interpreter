@@ -49,7 +49,18 @@ runProgram str =
              Ok graph
        )
     |> Result.map evaluateProgramGraph
-
+    |> Result.map (List.map2 (,) (nonemptyLines str))
+    |> Result.andThen (List.map ( \(code, terms) ->
+           let
+               result = last terms
+               evaluation = initList terms
+           in
+               case (result, evaluation) of
+                   (Just res, Just ev) ->
+                       Ok (code, ev, res, True)
+                   _ ->
+                       Err "Internal error: Evaluation didn't return a result"
+       ) >> sequenceResults )
 
 ----------------- Dependency Graph ------------------------------
 
@@ -197,6 +208,9 @@ transposeTupleMaybe pair =
 last : List a -> Maybe a
 last = List.head << List.reverse
 
+initList : List a -> Maybe (List a)
+initList = Maybe.map List.reverse << List.tail << List.reverse
+
 -- is already cycle free
 evaluateProgramGraph : Graph ProgramLine -> List (List Term)
 evaluateProgramGraph graph = 
@@ -268,3 +282,12 @@ parseProgram =
           (Parser.inRestOfLine (parseExpression <* Parser.whitespace) +++ parseAssignment)
           <* Parser.whitespace) >>= \lines ->
     Parser.return lines
+
+
+
+------------ Lib ---------------------------
+
+
+sequenceResults : List (Result a b) -> Result a (List b)
+sequenceResults = 
+    Result.map List.reverse << List.foldr (Result.map2 (::)) (Ok []) << List.reverse

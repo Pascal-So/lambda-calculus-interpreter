@@ -21,7 +21,7 @@ main =
 
 type alias Model =
     { program : String
-    , result : Result String (List (List Term))
+    , result : Result String (List (String, List Term, Term, Bool))
     }
 
 type Msg = ProgramChanged String
@@ -53,12 +53,30 @@ ma x = style [("margin", toString x ++ "px")]
 mb : Int -> Html.Attribute a
 mb x = style [("margin-bottom", toString x ++ "px")]
 
+{-
 viewStepwise : List Term -> List (Html Msg)
 viewStepwise terms =
     case terms of
         []      -> []
         [x]     -> [Html.h3 [ma 5] [text <| Lambda.showTerm x]]
         (x::xs) -> Html.h3 [ma 5] [text <| Lambda.showTerm x] :: viewStepwise xs
+-}
+
+viewContractable : Bool -> Html Msg -> Html Msg
+viewContractable open content = content
+
+viewEvaluation : (String, List Term, Term, Bool) -> List (Html Msg)
+viewEvaluation (code, eval, result, open) =
+    let
+        title = Html.h3 [ma 5] [text <| code]
+        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) eval
+        resultLine = Html.h3 [ma 5] [text <| showTerm result]
+    in
+        [ title
+        , viewContractable open <| Html.div [] evalLines
+        , resultLine
+        ]
+
 
 
 view : Model -> Html Msg
@@ -68,7 +86,7 @@ view model =
             Err error ->
                 Html.h3[] [text error]
             Ok termChains ->
-                List.map viewStepwise termChains
+                List.map viewEvaluation termChains
                 |> List.map (\x -> Html.div [mb 30] x)
                 |> Html.div []
         ]
