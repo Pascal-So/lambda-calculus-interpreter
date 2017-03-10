@@ -1,186 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>LC</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<meta charset="utf-8">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Lambda Calculus Interpreter">
+    <meta property="og:url" content="http://codelis.ch/lambda">
+    <meta property="og:site_name" content="Lambda Calculus Interpreter">
+    <meta property="og:description" content="Type lambda calculus expressions, which then get immediately evaluated.">
 
-<script type="text/javascript" src="main.js"></script>
+    <meta name="description" content="Type lambda calculus expressions, which then get immediately evaluated.">
 
-<style type="text/css" media="screen">
-    body{
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        padding-top: 10px;
-        padding-bottom: 80px;
-        background-color: #272727;
-        color: #ddd;
-        font-family: 'Open Sans', sans-serif;
-        text-align: center;
-        position: relative;
-        min-height: 100vh;
-    }
+    <meta name="twitter:url" content="http://codelis.ch/lambda">
+    <meta name="twitter:title" content="Lambda Calculus Interpreter">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@sommerpascal">
+    <meta name="twitter:title" content="A Lambda Calculus Interpreter in Elm">
+    <meta name="twitter:description" content="Type lambda calculus expressions, which then get immediately evaluated.">
+    <meta name="twitter:image" content="lambda.png">
+    <meta name="twitter:creator" content="@sommerpascal">
 
-    #editor { 
-        width: 100%;
-        height: 200px;
-    }
+    <title>Lambda Calculus</title>
 
-    .center-column{
-        max-width: 700px;
-        margin-left: auto;
-        margin-right: auto;
-    }
+    <script type="text/javascript" src="main.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
 
-    .errorLine {
-        position: absolute;
-        background: rgba(200, 100, 100, 0.5);
-        z-index: 20
-    }
-
-    .align-right{
-        text-align: right;
-    }
-    .align-left{
-        text-align: left;
-    }
-
-
-    button{
-        border: 1px solid #484848;
-        background-color: #ddd;
-        border-radius: 1px;
-        color: #282828;
-        font-size: 18px;
-        padding: 6px 16px;
-        margin: 0;
-    }
-    button:hover{
-        background-color: #fff;
-    }
-
-    section{
-        margin-top: 40px;
-    }
-    code{
-        border: 1px solid #484848;
-        background-color: #373737;
-        border-radius: 3px;
-        padding: 1px 3px;
-        font-weight: lighter;
-    }
-
-
-    p{
-        font-size: 20px;
-    }
-    a{
-        color: #ccc;
-        text-decoration: none;
-    }
-    a:hover{
-        color: white;
-    }
-
-    footer{
-        position: absolute;
-        right: 0;
-        left: 0;
-        bottom: 0;
-        padding: 1px 10px;
-        background-color: #222;
-        color: #aaa;
-        z-index: 100;
-    }
-    footer p{
-        font-size: 14px;
-    }
-</style>
 </head>
 <body>
 
-<h1>Lambda Calculus Interpreter</h1>
+    <h1>Lambda Calculus Interpreter</h1>
 
-<section class="center-column align-left">
+    <section class="center-column align-left">
 
-    <h2>Syntax</h2>
-    <p>Lambda abstractions can be defined using a backslash. <code>\x.x</code>, for example, denotes the identity function, where <code>x</code> is a variable. Note, that, since dropping the additional backslashes for multi-argument functions is allowed, <code>\fx.fx</code> is equivalent to <code>\f.\x.fx</code>.</p>
-    <p>Variables are usually single characters, but multi-character variables can be used by enclosing them in backquotes: <code>`func`x</code></p> 
-    <p>Lowercase and uppercase letters, as well as digits are allowed in variable names.</p>
+        <h2>Syntax</h2>
+        <p>Lambda abstractions can be defined using a backslash. <code>\x.x</code>, for example, denotes the identity function, where <code>x</code> is a variable. Note, that, since dropping the additional backslashes for multi-argument functions is allowed, <code>\fx.fx</code> is equivalent to <code>\f.\x.fx</code>.</p>
+        <p>Variables are usually single characters, but multi-character variables can be used by enclosing them in backquotes: <code>`func`x</code></p> 
+        <p>Lowercase and uppercase letters, as well as digits are allowed in variable names.</p>
 
-</section>
+    </section>
 
-<section class="center-column">
-    <div id="editor"></div>
+    <section class="center-column">
+        <div id="editor"></div>
 
-    <br>
+        <br>
 
-    <div id="result-viewer"></div>
-</section>
-
-
-<footer class="align-right">
-    <p>Pascal Sommer, 2017 - <a href="http://twitter.com/sommerpascal">@SommerPascal</a></p>
-</footer>
+        <div id="result-viewer"></div>
+    </section>
 
 
-    
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript" charset="utf-8"></script>
-<script>
-    // setup editor
-    var editor = ace.edit("editor");
-    var Range = ace.require('ace/range').Range // get reference to ace/range
-    editor.setTheme("ace/theme/chrome");
-    editor.setOptions({
-        fontSize: "13pt"
-    });
+    <footer class="align-right">
+        <p>Pascal Sommer, 2017 - <a href="http://twitter.com/sommerpascal">@SommerPascal</a></p>
+    </footer>
 
 
-    // add line marker functionality. The id of the current marker is stored
-    // in currentMark, it is used to remove it by reference
-    var currentMark = null;
-    function removeMark(){
-        if(currentMark != null) {
-            editor.session.removeMarker(currentMark);
-        }
-    }
-    function markLine(line, type){
-        removeMark();
-        line--;
-        currentMark = editor.session.addMarker(
-            new Range(line, 0, line, 1), type, "fullLine"
-        );
-    }
-    editor.on("input", function() {
-        removeMark();
-        evaluate();
-    });
 
-
-    // send the code to elm for evaluation
-    function evaluate(){
-        var code = editor.getValue();
-        elmApp.ports.evaluate.send(code); // code :: String
-    }
-    
-
-    // setup elm app
-    var viewer = document.getElementById("result-viewer");
-    var elmApp = Elm.EmbeddedLambda.embed(viewer);
-
-
-    // receive errors in code by elm app
-    elmApp.ports.errors.subscibe(function(errors){
-        //console.log("errors returned from elm", errors);
-
-        // errors :: [Int]
-        errors.map(function(errorLine){
-            markLine(errorLine, "errorLine");
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script>
+        // setup editor
+        var editor = ace.edit("editor");
+        var Range = ace.require('ace/range').Range // get reference to ace/range
+        editor.setTheme("ace/theme/chrome");
+        editor.setOptions({
+            fontSize: "13pt",
         });
-    })
+        var session = editor.getSession();
+        session.setOption('indentedSoftWrap', false);
+        session.setUseWrapMode(true);
 
-    
-</script>
+
+        // add line marker functionality. The id of the current marker is stored
+        // in currentMark, it is used to remove it by reference
+        var currentMark = null;
+        function removeMark(){
+            if(currentMark != null) {
+                editor.session.removeMarker(currentMark);
+            }
+        }
+        function markLine(line, type){
+            removeMark();
+            line--;
+            currentMark = editor.session.addMarker(
+                new Range(line, 0, line, 1), type, "fullLine"
+            );
+        }
+        editor.on("input", function() {
+            removeMark();
+            evaluate();
+        });
+
+
+        // send the code to elm for evaluation
+        function evaluate(){
+            var code = editor.getValue();
+            elmApp.ports.evaluate.send(code); // code :: String
+        }
+
+
+        // setup elm app
+        var viewer = document.getElementById("result-viewer");
+        var elmApp = Elm.EmbeddedLambda.embed(viewer);
+
+
+        // receive errors in code by elm app
+        elmApp.ports.errors.subscibe(function(errors){
+            //console.log("errors returned from elm", errors);
+
+            // errors :: [Int]
+            errors.map(function(errorLine){
+                markLine(errorLine, "errorLine");
+            });
+        })
+
+
+    </script>
 </body>
 </html>
