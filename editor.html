@@ -21,6 +21,8 @@
     <meta name="twitter:image" content="lambda.png">
     <meta name="twitter:creator" content="@sommerpascal">
 
+    <link rel="shortcut icon" href="favicon.ico">
+
     <title>Lambda Calculus</title>
 
     <script type="text/javascript" src="main.js"></script>
@@ -37,6 +39,14 @@
         <p>Lambda abstractions can be defined using a backslash. <code>\x.x</code>, for example, denotes the identity function, where <code>x</code> is a variable. Note, that, since dropping the additional backslashes for multi-argument functions is allowed, <code>\fx.fx</code> is equivalent to <code>\f.\x.fx</code>.</p>
         <p>Variables are usually single characters, but multi-character variables can be used by enclosing them in backquotes: <code>`func`x</code></p> 
         <p>Lowercase and uppercase letters, as well as digits are allowed in variable names.</p>
+
+        <h2>Let-bindings</h2>
+        <p>The interpreter allows for variables to be defined through let-bindings, such as <code>let `id` = \x.x</code>. These bindings all have to occupy their own line, but they don't necessarily have to be in order. The let-bindings can reference any other variables, as long as the definition doesn't end up being recursive.</p>
+        <p>These bindings are evaluated by detecting the free variables in a line and passing in the relevant bindings through a lambda. For example:</p>
+        <p><code>let `succ` = \nfx.f(nfx)<br><br>`succ`(\fx.x)</code></p>
+        <p>will result in</p>
+        <p><code>(\`succ`.`succ`(\fx.x))(\nfx.f(nfx))</code></p>
+        <p>being passed to the interpreter.</p>
 
     </section>
 
