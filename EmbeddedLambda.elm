@@ -19,12 +19,19 @@ main =
         , subscriptions = \_ -> evaluate ProgramChanged
         }
 
-type alias Model =
-    { program : String
-    , result : Result String (List (String, List Term, Term, Bool))
+type alias EvalResult = 
+    { code : String
+    , evaluation : List Term
+    , result : Term
+    , openState : Bool
     }
 
-type Msg = ProgramChanged String
+type alias Model =
+    { program : String
+    , result : Result String (List EvalResult)
+    }
+
+type Msg = ProgramChanged String | SetOpen Bool Int
 
 noCmd : Model -> (Model, Cmd Msg)
 noCmd m =
@@ -32,9 +39,19 @@ noCmd m =
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
-    case msg of
-        ProgramChanged newProg ->
-            Model newProg (LambdaLang.runProgram newProg) |> noCmd
+  case msg of
+    ProgramChanged newProg ->
+      Model newProg (runProgram newProg) |> noCmd
+    SetOpen state id ->
+      let
+        newResult = model.result
+            |> Result.map (
+                  Array.fromList
+                  >> updateArr id (\res -> {res | openState = state})
+                  >> Array.toList
+               )
+      in
+        {model | result = newResult} |> noCmd
 
 init : (Model, Cmd Msg)
 init =
@@ -65,15 +82,15 @@ viewStepwise terms =
 viewContractable : Bool -> Html Msg -> Html Msg
 viewContractable open content = content
 
-viewEvaluation : (String, List Term, Term, Bool) -> List (Html Msg)
-viewEvaluation (code, eval, result, open) =
+viewEvaluation : EvalResult -> List (Html Msg)
+viewEvaluation res =
     let
-        title = Html.h3 [ma 5] [text <| code]
-        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) eval
-        resultLine = Html.h3 [ma 5] [text <| showTerm result]
+        title = Html.h3 [ma 5] [text <| res.code]
+        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) res.evaluation
+        resultLine = Html.h3 [ma 5] [text <| showTerm res.result]
     in
         [ title
-        , viewContractable open <| Html.div [] evalLines
+        , viewContractable res.openState <| Html.div [] evalLines
         , resultLine
         ]
 
