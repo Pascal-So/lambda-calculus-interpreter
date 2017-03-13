@@ -1,5 +1,6 @@
 module LambdaLang exposing
     ( runProgram
+    , EvalResult
     )
 
 
@@ -10,16 +11,27 @@ import Parser exposing ((<*), (*>), (+++), (>>=), Parser)
 import Lambda exposing (Term)
 import LambdaParser
 import Graph exposing (Graph)
+import UtilityFunctions as Util
+
+
+type alias EvalResult = 
+    { code : String
+    , evaluation : List Term
+    , result : Term
+    , openState : Bool
+    }
 
 
 numberItems : List a -> List (Int, a)
 numberItems = List.indexedMap (\id a -> (id+1, a))
 
-sequenceResults : List (Result x a) -> Result x (List a)
-sequenceResults = List.foldr (Result.map2 (::)) (Ok [])
+nonemptyLines : String -> List String
+nonemptyLines str = 
+    str
+    |> String.lines
+    |> List.filter (\s -> String.trim s /= "")
 
-
-runProgram : String -> Result String (List (List Term))
+runProgram : String -> Result String (List EvalResult)
 runProgram str =
   (parseProgram <* Parser.eof) str
     -- |> log "parse"
@@ -52,20 +64,17 @@ runProgram str =
     |> Result.map (List.map2 (,) (nonemptyLines str))
     |> Result.andThen (List.map ( \(code, terms) ->
            let
-               result = last terms
-               evaluation = initList terms
+               result = Util.last terms
+               evaluation = Util.init terms
            in
                case (result, evaluation) of
                    (Just res, Just ev) ->
-                       Ok (code, ev, res, True)
+                       Ok (EvalResult code ev res True)
                    _ ->
                        Err "Internal error: Evaluation didn't return a result"
-       ) >> sequenceResults )
+       ) >> Util.sequenceResults )
 
 ----------------- Dependency Graph ------------------------------
-
-indexList : List a -> List (Int, a)
-indexList = List.indexedMap (,)
 
 setFilterMap : (comparable -> Maybe comparable1) -> Set comparable -> Set comparable1
 setFilterMap f = Set.fromList << List.filterMap f << Set.toList
@@ -73,7 +82,7 @@ setFilterMap f = Set.fromList << List.filterMap f << Set.toList
 
 getAssignmentsIdDict : List ProgramLine -> Dict Lambda.VarName Int
 getAssignmentsIdDict lst =
-  indexList lst
+  Util.indexList lst
   |> List.filterMap (\(id, line) ->
        case line of 
          Expression _ -> Nothing
@@ -95,9 +104,8 @@ getDependencyGraph lst =
            Dict.get dep definitions
          )
        )
-    |> indexList
+    |> Util.indexList
     |> List.foldr (\(id, deps)-> Graph.addEdges id deps) baseGraph
-
 
 
 
@@ -199,17 +207,7 @@ getDependencyName id graph =
                Expression _      -> Nothing
        )
 
-transposeTupleMaybe : (Maybe a, Maybe b) -> Maybe (a, b)
-transposeTupleMaybe pair =
-    case pair of
-        (Just a, Just b) -> Just (a, b)
-        _                -> Nothing
 
-last : List a -> Maybe a
-last = List.head << List.reverse
-
-initList : List a -> Maybe (List a)
-initList = Maybe.map List.reverse << List.tail << List.reverse
 
 -- is already cycle free
 evaluateProgramGraph : Graph ProgramLine -> List (List Term)
@@ -228,9 +226,9 @@ evaluateProgramGraph graph =
                     |> List.map (\id -> 
                            Array.get id evaluated
                            |> flattenMaybe
-                           |> Maybe.andThen last
+                           |> Maybe.andThen Util.last
                            |> (\val -> (getDependencyName id graph, val))
-                           |> transposeTupleMaybe
+                           |> Util.transposeTupleMaybe
                        )
                     |> List.filterMap identity
                     |> Dict.fromList
@@ -284,10 +282,3 @@ parseProgram =
     Parser.return lines
 
 
-
------------- Lib ---------------------------
-
-
-sequenceResults : List (Result a b) -> Result a (List b)
-sequenceResults = 
-    Result.map List.reverse << List.foldr (Result.map2 (::)) (Ok []) << List.reverse

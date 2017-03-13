@@ -14,17 +14,7 @@ module Graph exposing
 
 import Array exposing (Array)
 import Set exposing (Set)
-
-indexList : List a -> List (Int, a)
-indexList = List.indexedMap (,)
-
-
-updateArr : Int -> (a -> a) -> Array a -> Array a
-updateArr pos func arr =
-  Array.get pos arr
-  |> Maybe.map func
-  |> Maybe.map (\upd -> Array.set pos upd arr)
-  |> Maybe.withDefault arr
+import UtilityFunctions as Util
   
 
 type alias Graph a = Array (a, Set Int)
@@ -39,11 +29,11 @@ showGraph graph =
 
 addEdge : Int -> Int -> Graph a -> Graph a
 addEdge a b =
-  updateArr a (Tuple.mapSecond (Set.insert b))
+  Util.updateArr a (Tuple.mapSecond (Set.insert b))
 
 addEdges : Int -> Set Int -> Graph a -> Graph a
 addEdges a bs =
-  updateArr a (Tuple.mapSecond (Set.union bs))
+  Util.updateArr a (Tuple.mapSecond (Set.union bs))
   
 
 fromVerts : List a -> Graph a
@@ -205,7 +195,7 @@ getSubGraph keep graph =
           |> Maybe.withDefault 0
     in
         Array.toList graph
-        |> indexList
+        |> Util.indexList
         |> List.filter (\(id, val) ->
               Set.member id keep
            )

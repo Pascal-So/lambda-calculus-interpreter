@@ -4,9 +4,10 @@ import Html exposing (Html, text)
 import Html.Attributes exposing (style)
 import Html.Events
 import Lambda exposing (Term)
-import LambdaLang
+import LambdaLang exposing (EvalResult)
+import Array exposing (Array)
 
-
+import UtilityFunctions as Util
 
 port evaluate : (String -> msg) -> Sub msg
 
@@ -19,12 +20,7 @@ main =
         , subscriptions = \_ -> evaluate ProgramChanged
         }
 
-type alias EvalResult = 
-    { code : String
-    , evaluation : List Term
-    , result : Term
-    , openState : Bool
-    }
+
 
 type alias Model =
     { program : String
@@ -41,13 +37,13 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     ProgramChanged newProg ->
-      Model newProg (runProgram newProg) |> noCmd
+      Model newProg (LambdaLang.runProgram newProg) |> noCmd
     SetOpen state id ->
       let
         newResult = model.result
             |> Result.map (
                   Array.fromList
-                  >> updateArr id (\res -> {res | openState = state})
+                  >> Util.updateArr id (\res -> {res | openState = state})
                   >> Array.toList
                )
       in
@@ -86,8 +82,8 @@ viewEvaluation : EvalResult -> List (Html Msg)
 viewEvaluation res =
     let
         title = Html.h3 [ma 5] [text <| res.code]
-        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) res.evaluation
-        resultLine = Html.h3 [ma 5] [text <| showTerm res.result]
+        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| Lambda.showTerm x]) res.evaluation
+        resultLine = Html.h3 [ma 5] [text <| Lambda.showTerm res.result]
     in
         [ title
         , viewContractable res.openState <| Html.div [] evalLines

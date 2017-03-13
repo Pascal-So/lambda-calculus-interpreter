@@ -11,6 +11,9 @@ module Lambda exposing
     )
 
 import Set exposing (Set)
+import Dict exposing (Dict)
+import UtilityFunctions as Util
+
 
 ----------------- Data Types ----------------------
 
@@ -80,7 +83,7 @@ evaluateStepwise =
 evaluate : Term -> Term
 evaluate t =
   evaluateStepwise t
-  |> last
+  |> Util.last
   |> Maybe.withDefault t
 
 
