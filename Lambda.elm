@@ -7,6 +7,7 @@ module Lambda exposing
     , multiVarLambda
     , multiApp
     , getFreeVars
+    , alphaNormalize
     )
 
 import Set exposing (Set)
@@ -54,28 +55,35 @@ showTerm t =
 --------------------------- Evaluation ----------------------------------
 
 
+
+-- have to use Set of String to store all visited terms, because elm doesn't allow
+-- the user to define instances of Ord...
+evaluateStepwise_ : Set String -> Term -> List Term
+evaluateStepwise_ visited t =
+    let
+        ev = evaluationStep t
+        norm = alphaNormalize ev
+    in
+        if Set.member (showTerm norm) visited then
+            [t]
+        else
+            t::(evaluateStepwise_ (Set.insert (showTerm norm) visited) ev)
+
+
 -- normal order beta reduction until nothing changes anymore, return list
 -- of intermediate terms
 evaluateStepwise : Term -> List Term
-evaluateStepwise t =
-    let
-        ev = evaluationStep t
-    in
-        if ev == t then
-            [t]
-        else
-            t :: (evaluateStepwise ev)
-
+evaluateStepwise =
+    evaluateStepwise_ Set.empty
+  
 -- normal order beta reduction until nothing changes anymore
 evaluate : Term -> Term
 evaluate t =
-    let
-        ev = evaluationStep t
-    in
-        if ev == t then
-            ev
-        else
-            evaluate ev
+  evaluateStepwise t
+  |> last
+  |> Maybe.withDefault t
+
+
 
 -- normal order beta reduction
 evaluationStep : Term -> Term
@@ -111,10 +119,53 @@ multiApp = List.foldl (flip App)
 
 
 
+------------------------ Utilities ----------------------------------
+
+alphaNormalize_ : VarName -> Dict VarName VarName -> Term -> Term
+alphaNormalize_ highest replacements term =
+    case term of
+        Lambda x e ->
+            let
+                newName = getNextVarName highest
+                newDict = Dict.insert x newName replacements
+            in
+                Lambda newName (alphaNormalize_ newName newDict e)
+        App a b -> 
+            App (alphaNormalize_ highest replacements a) (alphaNormalize_ highest replacements b)
+        Var x ->
+            Dict.get x replacements
+            |> Maybe.withDefault x
+            |> Var
+           
+
+alphaNormalize : Term -> Term
+alphaNormalize =
+    alphaNormalize_ "0" Dict.empty
+
+
+getFreeVars : Term -> Set VarName
+getFreeVars t =
+    case t of
+        Var x ->
+            Set.singleton x
+        Lambda x t ->
+            let
+                ft = getFreeVars t
+            in
+                Set.diff ft (Set.singleton x)
+        App t1 t2 ->
+            Set.union (getFreeVars t1) (getFreeVars t2)
 
 
 ----------------- Implementation Details ---------------------------
 
+
+getNextVarName : VarName -> VarName
+getNextVarName x =
+    String.toInt x
+    |> Result.map ((+) 1)
+    |> Result.withDefault 1
+    |> toString
 
 getInts : Set String -> Set Int
 getInts set =
@@ -142,19 +193,6 @@ findUnusedInt s =
                 x
     in
         find s 1
-
-getFreeVars : Term -> Set VarName
-getFreeVars t =
-    case t of
-        Var x ->
-            Set.singleton x
-        Lambda x t ->
-            let
-                ft = getFreeVars t
-            in
-                Set.diff ft (Set.singleton x)
-        App t1 t2 ->
-            Set.union (getFreeVars t1) (getFreeVars t2)
 
 renameFreeVar : VarName -> VarName -> Term -> Term
 renameFreeVar x y t =
