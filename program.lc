@@ -9,3 +9,8 @@ let `minus` = \mn.n`pred`m
 let `one` = `succ` `zero`
 
 `one`
+
+let `true` = \xy.x
+let `false` = \xy.y
+
+let `isZero` = \n.n(\x.`false`)`true`

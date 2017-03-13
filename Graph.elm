@@ -65,25 +65,29 @@ mapHead f lst =
         []      -> []
         (x::xs) -> (f x) :: xs
 
+topoSort_ : Array Bool -> Int -> List Int -> Graph g -> (Array Bool, List Int)
+topoSort_ seen id sorted graph =
+    if Array.get id seen |> Maybe.withDefault False then -- already seen
+        (seen, sorted)
+    else
+        let
+            (newSeen, newSorted) = getOutEdges id graph
+                |> Maybe.withDefault Set.empty
+                |> Set.toList
+                |> List.foldl (\id (seen, sorted) -> topoSort_ seen id sorted graph) ((Array.set id True seen), sorted)
+        in
+            (newSeen, id::newSorted)
+    
+
 topoSort : Graph a -> List Int
-topoSort graph = 
+topoSort graph =
     let
-        onDiscover = (\id _ state -> mapHead ((::) id) state)
-        state = [[]]
         size = getSize graph
-        noneSeen = Array.repeat size False
-        visitRest seen state =
-            case getFirstId not seen of
-                Nothing -> state
-                Just id ->
-                    let
-                        (nSeen, nState) = dfs_ onDiscover state seen id graph
-                    in
-                        visitRest nSeen ([] :: nState)
+        seen = Array.repeat size False
     in
-        visitRest noneSeen state
-        |> List.map List.reverse
-        |> List.concat
+        List.range 0 (size-1)
+        |> List.foldl (\id (seen, sorted) -> topoSort_ seen id sorted graph) (seen, [])
+        |> Tuple.second
 
 
 getFirstId : (a -> Bool) -> Array a -> Maybe Int
