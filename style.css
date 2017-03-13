@@ -53,6 +53,14 @@ section{
     margin-top: 10px;
 }
 
+.code-result{
+    border: 1px solid #484848;
+    background-color: #373737;
+    border-radius: 3px;
+    padding: 1px 3px;
+    font-weight: lighter;
+}
+
 code{
     border: 1px solid #484848;
     background-color: #373737;

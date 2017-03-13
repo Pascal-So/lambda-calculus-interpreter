@@ -75,18 +75,18 @@ viewStepwise terms =
         (x::xs) -> Html.h3 [ma 5] [text <| Lambda.showTerm x] :: viewStepwise xs
 -}
 
-viewContractable : Bool -> Html Msg -> Html Msg
-viewContractable open content = content
+viewContractable : Int -> Bool -> Html Msg -> Html Msg
+viewContractable id open content = content
 
-viewEvaluation : EvalResult -> List (Html Msg)
-viewEvaluation res =
+viewEvaluation : Int -> EvalResult -> List (Html Msg)
+viewEvaluation id res =
     let
         title = Html.h3 [ma 5] [text <| res.code]
         evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| Lambda.showTerm x]) res.evaluation
         resultLine = Html.h3 [ma 5] [text <| Lambda.showTerm res.result]
     in
         [ title
-        , viewContractable res.openState <| Html.div [] evalLines
+        , viewContractable id res.openState <| Html.div [] evalLines
         , resultLine
         ]
 
@@ -99,7 +99,7 @@ view model =
             Err error ->
                 Html.h3[] [text error]
             Ok termChains ->
-                List.map viewEvaluation termChains
+                List.indexedMap viewEvaluation termChains
                 |> List.map (\x -> Html.div [mb 30] x)
                 |> Html.div []
         ]

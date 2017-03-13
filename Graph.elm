@@ -49,11 +49,6 @@ getOutEdges id = Maybe.map Tuple.second << Array.get id
 getValue : Int -> Graph a -> Maybe a
 getValue id = Maybe.map Tuple.first << Array.get id
 
-mapHead : (a -> a) -> List a -> List a
-mapHead f lst =
-    case lst of
-        []      -> []
-        (x::xs) -> (f x) :: xs
 
 topoSort_ : Array Bool -> Int -> List Int -> Graph g -> (Array Bool, List Int)
 topoSort_ seen id sorted graph =
