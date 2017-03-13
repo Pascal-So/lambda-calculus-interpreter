@@ -73,6 +73,8 @@
         editor.setTheme("ace/theme/chrome");
         editor.setOptions({
             fontSize: "13pt",
+            minLines: 15,
+            maxLines: Infinity
         });
         var session = editor.getSession();
         session.setOption('indentedSoftWrap', false);

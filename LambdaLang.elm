@@ -257,7 +257,7 @@ parseAssignment =
     Parser.whitespace *>
     Parser.char '=' *>
     Parser.whitespace *>
-    Parser.inRestOfLine LambdaParser.parseTerm >>= \term ->
+    Parser.inRestOfLine (LambdaParser.parseTerm <* Parser.whitespace) >>= \term ->
     Parser.return (Assignment varname term)
 
 parseExpression : Parser ProgramLine
