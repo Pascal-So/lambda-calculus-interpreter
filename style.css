@@ -8,12 +8,15 @@ body{
     padding: 0;
     padding-top: 10px;
     padding-bottom: 80px;
-    background-color: #272727;
     color: #ddd;
     font-family: 'Open Sans', sans-serif;
     text-align: center;
     position: relative;
     min-height: 100vh;
+}
+
+.dark-bg{
+    background-color: #272727;
 }
 
 #editor { 

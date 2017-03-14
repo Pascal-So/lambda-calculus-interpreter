@@ -29,7 +29,7 @@
     <link rel="stylesheet" type="text/css" href="style.css">
 
 </head>
-<body>
+<body class="dark-bg">
 
     <h1>Lambda Calculus Interpreter</h1>
 
@@ -59,17 +59,25 @@
         
         <div style="text-align: center;">
             <div>
-                <code style="margin-bottom: 30px; width: 100%">
+                <div class="code-result" style="margin-bottom: 30px;">
                     <h3 style="margin: 5px;">let `succ` = a</h3>
-                    <div class="code-result" style="">
+                    <div class="dark-bg" style="border-radius: 3px; padding: 3px;">
                         
                         <h3 style="color: rgb(119, 119, 119); margin: 5px;">a</h3>
-                        
-                        <a href="" title="collapse the evaluation path"><img src="img/collapse.png" style="width: 15px;"></a>
+                        <style type="text/css">
+                            img{
+                                padding: 2px 8px;
+                                margin: 0;
+                            }
+                            img:hover{
+                                background-color: #444;
+                            }
+                        </style>
+                        <img src="img/collapse.png" style="width: 15px; border-radius: 3px;" title="collapse path">
                     </div>
                     
                     <h3 style="margin: 5px;">a</h3>
-                </code>
+                </div>
             </div>
         </div -->
 

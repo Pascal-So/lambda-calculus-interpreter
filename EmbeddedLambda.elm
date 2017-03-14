@@ -1,8 +1,8 @@
 port module EmbeddedLambda exposing (main)
 
-import Html exposing (Html, text)
-import Html.Attributes exposing (style)
-import Html.Events
+import Html exposing (Html, Attribute, text)
+import Html.Attributes as Attributes exposing (style)
+import Html.Events as Events
 import Lambda exposing (Term)
 import LambdaLang exposing (EvalResult)
 import Array exposing (Array)
@@ -57,39 +57,55 @@ init =
 lightGrey : Html.Attribute a
 lightGrey = style [("color", "#777")]
 
-darkGrey : Html.Attribute a
+darkGrey : Attribute a
 darkGrey = style [("color", "#222")]
 
-ma : Int -> Html.Attribute a
+ma : Int -> Attribute a
 ma x = style [("margin", toString x ++ "px")]
 
-mb : Int -> Html.Attribute a
+mb : Int -> Attribute a
 mb x = style [("margin-bottom", toString x ++ "px")]
 
-{-
-viewStepwise : List Term -> List (Html Msg)
-viewStepwise terms =
-    case terms of
-        []      -> []
-        [x]     -> [Html.h3 [ma 5] [text <| Lambda.showTerm x]]
-        (x::xs) -> Html.h3 [ma 5] [text <| Lambda.showTerm x] :: viewStepwise xs
--}
+pa : Int -> Attribute a
+pa x = style [("padding", toString x ++ "px")]
 
-viewContractable : Int -> Bool -> Html Msg -> Html Msg
-viewContractable id open content = content
+borderRadius : Int -> Attribute a
+borderRadius x = style [("border-radius", toString x ++ "px")]
+
+
+
+
+viewCollapsable : Int -> Bool -> Html Msg -> Html Msg
+viewCollapsable id open content =
+    let 
+        clickHandler = Events.onClick (SetOpen (not open) id)
+        imagePath = if open then "img/collapse.png" else "img/expand.png"
+        titleText = (if open then "Hide" else "Show") ++ " the evaluation path."
+        handle = Html.img 
+            [ Attributes.src imagePath
+            , clickHandler
+            , borderRadius 3
+            , Attributes.class "dark-bg"
+            , Attributes.title titleText] 
+            []
+    in  
+        (if open then [content] else [])
+        |> flip (++) [handle]
+        |> Html.div [Attributes.class "darkBg", borderRadius 3]
+    
+
 
 viewEvaluation : Int -> EvalResult -> List (Html Msg)
 viewEvaluation id res =
     let
         title = Html.h3 [ma 5] [text <| res.code]
-        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| Lambda.showTerm x]) res.evaluation
-        resultLine = Html.h3 [ma 5] [text <| Lambda.showTerm res.result]
+        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) res.evaluation
+        resultLine = Html.h3 [ma 5] [text <| showTerm res.result]
     in
         [ title
-        , viewContractable id res.openState <| Html.div [] evalLines
+        , viewCollapsable id res.openState <| Html.div [] evalLines
         , resultLine
         ]
-
 
 
 view : Model -> Html Msg
