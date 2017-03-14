@@ -1,6 +1,6 @@
 elm-package.json
 elm-stuff
-index.html
 main.js
 main2.js
 .on-save.json
+.git-ftp-include
