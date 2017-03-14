@@ -56,30 +56,6 @@
         <br>
 
         <div id="result-viewer"></div>
-        
-        <div style="text-align: center;">
-            <div>
-                <div class="code-result" style="margin-bottom: 30px;">
-                    <h3 style="margin: 5px;">let `succ` = a</h3>
-                    <div class="dark-bg" style="border-radius: 3px; padding: 3px;">
-                        
-                        <h3 style="color: rgb(119, 119, 119); margin: 5px;">a</h3>
-                        <style type="text/css">
-                            img{
-                                padding: 2px 8px;
-                                margin: 0;
-                            }
-                            img:hover{
-                                background-color: #444;
-                            }
-                        </style>
-                        <img src="img/collapse.png" style="width: 15px; border-radius: 3px;" title="collapse path">
-                    </div>
-                    
-                    <h3 style="margin: 5px;">a</h3>
-                </div>
-            </div>
-        </div -->
 
     </section>
 
@@ -105,6 +81,26 @@
         session.setOption('indentedSoftWrap', false);
         session.setUseWrapMode(true);
 
+        // setup elm app
+        var viewer = document.getElementById("result-viewer");
+        var elmApp = Elm.EmbeddedLambda.embed(viewer);
+
+
+        // send the code to elm for evaluation
+        function evaluate(){
+            var code = editor.getValue();
+            elmApp.ports.evaluate.send(code); // code :: String
+        }
+
+        editor.on("input", function() {
+            //removeMark();
+            evaluate();
+        });
+        
+
+
+        /*
+        // currently not in use, as parser doesn't yet return line nr of errors
 
         // add line marker functionality. The id of the current marker is stored
         // in currentMark, it is used to remove it by reference
@@ -121,23 +117,6 @@
                 new Range(line, 0, line, 1), type, "fullLine"
             );
         }
-        editor.on("input", function() {
-            removeMark();
-            evaluate();
-        });
-
-
-        // send the code to elm for evaluation
-        function evaluate(){
-            var code = editor.getValue();
-            elmApp.ports.evaluate.send(code); // code :: String
-        }
-
-
-        // setup elm app
-        var viewer = document.getElementById("result-viewer");
-        var elmApp = Elm.EmbeddedLambda.embed(viewer);
-
 
         // receive errors in code by elm app
         elmApp.ports.errors.subscibe(function(errors){
@@ -148,6 +127,7 @@
                 markLine(errorLine, "errorLine");
             });
         })
+        */
 
 
     </script>

@@ -49,7 +49,7 @@ parseSingleCharVar =
 parseLongVarName : Parser Lambda.VarName
 parseLongVarName =
     Parser.char '`' *>
-    Parser.many (Parser.sat isAlphanum) >>= \name ->
+    Parser.many (Parser.sat isAlphanum +++ Parser.oneOf "-_") >>= \name ->
     Parser.char '`' *>
     Parser.return (String.fromList name)
 

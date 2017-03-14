@@ -63,6 +63,9 @@ darkGrey = style [("color", "#222")]
 ma : Int -> Attribute a
 ma x = style [("margin", toString x ++ "px")]
 
+mt : Int -> Attribute a
+mt x = style [("margin-top", toString x ++ "px")]
+
 mb : Int -> Attribute a
 mb x = style [("margin-bottom", toString x ++ "px")]
 
@@ -81,17 +84,22 @@ viewCollapsable id open content =
         clickHandler = Events.onClick (SetOpen (not open) id)
         imagePath = if open then "img/collapse.png" else "img/expand.png"
         titleText = (if open then "Hide" else "Show") ++ " the evaluation path."
+        backgroundColor = if open then "dark-bg" else "mid-bg"
         handle = Html.img 
             [ Attributes.src imagePath
             , clickHandler
+            , mt 3
+            , pa 6
+            , Attributes.width 15
             , borderRadius 3
-            , Attributes.class "dark-bg"
-            , Attributes.title titleText] 
+            , Attributes.title titleText
+            , Attributes.class "collapse-handle"
+            ] 
             []
     in  
         (if open then [content] else [])
         |> flip (++) [handle]
-        |> Html.div [Attributes.class "darkBg", borderRadius 3]
+        |> Html.div [Attributes.class backgroundColor, borderRadius 3, pa 5]
     
 
 
@@ -99,8 +107,8 @@ viewEvaluation : Int -> EvalResult -> List (Html Msg)
 viewEvaluation id res =
     let
         title = Html.h3 [ma 5] [text <| res.code]
-        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| showTerm x]) res.evaluation
-        resultLine = Html.h3 [ma 5] [text <| showTerm res.result]
+        evalLines = List.map (\x -> Html.h3 [lightGrey, ma 5] [text <| Lambda.showTerm x]) res.evaluation
+        resultLine = Html.h3 [ma 5] [text <| Lambda.showTerm res.result]
     in
         [ title
         , viewCollapsable id res.openState <| Html.div [] evalLines
@@ -110,12 +118,12 @@ viewEvaluation id res =
 
 view : Model -> Html Msg
 view model =
-    Html.div [Html.Attributes.style [("text-align", "center")]]
+    Html.div [Attributes.style [("text-align", "center")]]
         [ case model.result of
             Err error ->
                 Html.h3[] [text error]
             Ok termChains ->
                 List.indexedMap viewEvaluation termChains
-                |> List.map (\x -> Html.div [mb 30] x)
+                |> List.map (\x -> Html.div [mb 30, Attributes.class "code-result"] x)
                 |> Html.div []
         ]

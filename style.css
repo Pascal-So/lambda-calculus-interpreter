@@ -15,8 +15,15 @@ body{
     min-height: 100vh;
 }
 
+.collapse-handle:hover{
+    background-color: #373737;
+}
+
 .dark-bg{
     background-color: #272727;
+}
+.mid-bg{
+    background-color: #2e2e2e;
 }
 
 #editor { 

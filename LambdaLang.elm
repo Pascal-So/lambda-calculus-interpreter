@@ -69,7 +69,7 @@ runProgram str =
            in
                case (result, evaluation) of
                    (Just res, Just ev) ->
-                       Ok (EvalResult code ev res True)
+                       Ok (EvalResult code ev res False)
                    _ ->
                        Err "Internal error: Evaluation didn't return a result"
        ) >> Util.sequenceResults )
